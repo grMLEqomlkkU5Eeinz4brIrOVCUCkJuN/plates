@@ -1,13 +1,8 @@
 import { z } from "zod";
 import dotenv from "dotenv";
+import { stringToArray } from "utils/helpers";
 
 dotenv.config();
-
-const stringToArray = (val: string) =>
-	val
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
 
 const envSchema = z.object({
 	NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
