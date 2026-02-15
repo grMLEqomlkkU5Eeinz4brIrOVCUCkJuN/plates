@@ -28,7 +28,11 @@ export const validate = (schema: ValidationSchema) => {
 					new AppError(400, `Validation error in ${location}: ${formatZodError(result.error)}`)
 				);
 			}
-			req[location] = result.data;
+			if (location === "query") {
+				Object.assign(req.query, result.data);
+			} else {
+				req[location] = result.data;
+			}
 		}
 
 		next();
