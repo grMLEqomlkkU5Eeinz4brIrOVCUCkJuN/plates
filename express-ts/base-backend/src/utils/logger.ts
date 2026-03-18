@@ -5,7 +5,19 @@ import { env } from "../config/env";
 
 const logDir = path.join(__dirname, "..", "..", "logs");
 
+/** Replace raw Error objects in metadata with plain objects so JSON.stringify captures message+stack. */
+const serializeErrors = winston.format((info) => {
+	for (const key of Object.keys(info)) {
+		if (info[key] instanceof Error) {
+			const err = info[key] as Error;
+			info[key] = { ...err, message: err.message, stack: err.stack };
+		}
+	}
+	return info;
+});
+
 const consoleFormat = winston.format.combine(
+	serializeErrors(),
 	winston.format.colorize(),
 	winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 	winston.format.printf(({ timestamp, level, message, ...meta }) => {
@@ -18,6 +30,7 @@ const consoleFormat = winston.format.combine(
 );
 
 const fileFormat = winston.format.combine(
+	serializeErrors(),
 	winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
 	winston.format.printf(({ timestamp, level, message, ...meta }) => {
 		let msg = `${timestamp} [${level}]: ${message}`;
