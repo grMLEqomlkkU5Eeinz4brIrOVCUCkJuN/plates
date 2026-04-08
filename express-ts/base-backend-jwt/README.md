@@ -1,6 +1,6 @@
-# Express TypeScript Backend Template
+# Express TypeScript Backend Template (JWT)
 
-This is a simple Express.js backend template with TypeScript, Zod validation, Winston logging, Swagger docs, and Jest testing. It is not specific to any tech stack.
+A simple Express.js backend template with TypeScript, JWT authentication, CSRF protection, Zod validation, Winston logging, Swagger docs, and Jest testing. Not specific to any tech stack.
 
 ## Quick Start
 
@@ -36,10 +36,13 @@ npm start
 │   │   ├── env.ts
 │   │   └── swagger.ts
 │   ├── controllers
+│   │   ├── auth.controller.ts
 │   │   ├── health.controller.ts
 │   │   └── user.controller.ts
 │   ├── main.ts
 │   ├── middleware
+│   │   ├── auth.ts
+│   │   ├── csrf.ts
 │   │   ├── errorHandler.ts
 │   │   ├── httpLogger.ts
 │   │   └── validate.ts
@@ -50,6 +53,7 @@ npm start
 │   ├── routes
 │   │   ├── api
 │   │   │   └── v1
+│   │   │       ├── auth.routes.ts
 │   │   │       ├── health.routes.ts
 │   │   │       ├── index.ts
 │   │   │       ├── __tests__
@@ -64,11 +68,9 @@ npm start
 │   │   ├── express.d.ts
 │   │   └── README.md
 │   └── utils
-│       ├── asyncHandler.ts
+│       ├── helpers.ts
 │       └── logger.ts
 └── tsconfig.json
-
-14 directories, 31 files
 ```
 
 ## Adding a New Feature
@@ -104,48 +106,23 @@ export type ProductData = z.infer<typeof productSchema>;
 export type CreateProductData = z.infer<typeof createProductSchema>;
 export type UpdateProductData = z.infer<typeof updateProductSchema>;
 
-// Model class
-export class Product {
-  readonly id: string;
-  name: string;
-  price: number;
-  readonly createdAt: Date;
-  updatedAt: Date;
+// Factory function
+export const createProduct = (data: CreateProductData): ProductData => {
+  const now = new Date();
+  return {
+    id: crypto.randomUUID(),
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
 
-  constructor(data: ProductData) {
-    this.id = data.id;
-    this.name = data.name;
-    this.price = data.price;
-    this.createdAt = data.createdAt;
-    this.updatedAt = data.updatedAt;
-  }
-
-  static create(data: CreateProductData): Product {
-    const now = new Date();
-    return new Product({
-      id: crypto.randomUUID(),
-      ...data,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  update(data: UpdateProductData): void {
-    if (data.name !== undefined) this.name = data.name;
-    if (data.price !== undefined) this.price = data.price;
-    this.updatedAt = new Date();
-  }
-
-  toJSON(): ProductData {
-    return {
-      id: this.id,
-      name: this.name,
-      price: this.price,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
-    };
-  }
-}
+// Immutable update
+export const updateProduct = (product: ProductData, data: UpdateProductData): ProductData => ({
+  ...product,
+  ...data,
+  updatedAt: new Date(),
+});
 ```
 
 ### Step 2: Create the Controller
@@ -154,45 +131,39 @@ Create `src/controllers/product.controller.ts`:
 
 ```typescript
 import { Request, Response } from "express";
-import { Product, CreateProductData, UpdateProductData } from "../models/product.model";
-import { AppError } from "../middleware/errorHandler";
+import { createProduct, updateProduct, CreateProductData, UpdateProductData, ProductData } from "../models/product.model";
+import { createError } from "../middleware/errorHandler";
 
 // Replace with your database
-const products = new Map<string, Product>();
+const products = new Map<string, ProductData>();
 
-export const createProduct = (req: Request, res: Response): void => {
-  const data = req.body as CreateProductData;
-  const product = Product.create(data);
+export const createProductHandler = (req: Request, res: Response) => {
+  const product = createProduct(req.body as CreateProductData);
   products.set(product.id, product);
-  res.status(201).json(product.toJSON());
+  res.status(201).json(product);
 };
 
-export const getProducts = (_req: Request, res: Response): void => {
-  const all = Array.from(products.values()).map((p) => p.toJSON());
-  res.json(all);
+export const getProducts = (_req: Request, res: Response) => {
+  res.json([...products.values()]);
 };
 
-export const getProductById = (req: Request, res: Response): void => {
+export const getProductById = (req: Request<{ id: string }>, res: Response) => {
   const product = products.get(req.params.id);
-  if (!product) {
-    throw new AppError(404, "Product not found");
-  }
-  res.json(product.toJSON());
+  if (!product) throw createError(404, "Product not found");
+  res.json(product);
 };
 
-export const updateProduct = (req: Request, res: Response): void => {
+export const updateProductHandler = (req: Request<{ id: string }>, res: Response) => {
   const product = products.get(req.params.id);
-  if (!product) {
-    throw new AppError(404, "Product not found");
-  }
-  product.update(req.body as UpdateProductData);
-  res.json(product.toJSON());
+  if (!product) throw createError(404, "Product not found");
+
+  const updated = updateProduct(product, req.body as UpdateProductData);
+  products.set(updated.id, updated);
+  res.json(updated);
 };
 
-export const deleteProduct = (req: Request, res: Response): void => {
-  if (!products.delete(req.params.id)) {
-    throw new AppError(404, "Product not found");
-  }
+export const deleteProduct = (req: Request<{ id: string }>, res: Response) => {
+  if (!products.delete(req.params.id)) throw createError(404, "Product not found");
   res.status(204).send();
 };
 ```
@@ -205,13 +176,14 @@ Create `src/routes/api/v1/product.routes.ts`:
 import { Router } from "express";
 import { z } from "zod";
 import { validate } from "../../../middleware/validate";
+import { authenticate } from "../../../middleware/auth";
+import { doubleCsrfProtection } from "../../../middleware/csrf";
 import { createProductSchema, updateProductSchema } from "../../../models/product.model";
-import asyncHandler from "../../../utils/asyncHandler";
 import {
-  createProduct,
+  createProductHandler,
   getProducts,
   getProductById,
-  updateProduct,
+  updateProductHandler,
   deleteProduct,
 } from "../../../controllers/product.controller";
 
@@ -233,7 +205,7 @@ const idParamSchema = {
  *       200:
  *         description: List of products
  */
-router.get("/", asyncHandler(getProducts));
+router.get("/", authenticate, getProducts);
 
 /**
  * @swagger
@@ -257,7 +229,13 @@ router.get("/", asyncHandler(getProducts));
  *       201:
  *         description: Product created
  */
-router.post("/", validate({ body: createProductSchema }), asyncHandler(createProduct));
+router.post(
+  "/",
+  authenticate,
+  doubleCsrfProtection,
+  validate({ body: createProductSchema }),
+  createProductHandler
+);
 
 /**
  * @swagger
@@ -278,7 +256,7 @@ router.post("/", validate({ body: createProductSchema }), asyncHandler(createPro
  *       404:
  *         description: Product not found
  */
-router.get("/:id", validate(idParamSchema), asyncHandler(getProductById));
+router.get("/:id", authenticate, validate(idParamSchema), getProductById);
 
 /**
  * @swagger
@@ -299,8 +277,10 @@ router.get("/:id", validate(idParamSchema), asyncHandler(getProductById));
  */
 router.patch(
   "/:id",
+  authenticate,
+  doubleCsrfProtection,
   validate({ ...idParamSchema, body: updateProductSchema }),
-  asyncHandler(updateProduct)
+  updateProductHandler
 );
 
 /**
@@ -320,7 +300,13 @@ router.patch(
  *       204:
  *         description: Product deleted
  */
-router.delete("/:id", validate(idParamSchema), asyncHandler(deleteProduct));
+router.delete(
+  "/:id",
+  authenticate,
+  doubleCsrfProtection,
+  validate(idParamSchema),
+  deleteProduct
+);
 
 export default router;
 ```
@@ -332,12 +318,14 @@ Update `src/routes/api/v1/index.ts`:
 ```typescript
 import { Router } from "express";
 import healthRoutes from "./health.routes";
+import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import productRoutes from "./product.routes"; // Add this
 
 const router = Router();
 
 router.use("/health", healthRoutes);
+router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/products", productRoutes); // Add this
 
@@ -349,12 +337,12 @@ export default router;
 Create `src/models/__tests__/product.model.test.ts`:
 
 ```typescript
-import { Product, createProductSchema } from "../product.model";
+import { createProduct, createProductSchema } from "../product.model";
 
 describe("Product Model", () => {
-  describe("Product.create", () => {
+  describe("createProduct", () => {
     it("should create a product", () => {
-      const product = Product.create({
+      const product = createProduct({
         name: "Test Product",
         price: 99.99,
       });
@@ -436,10 +424,18 @@ npm test
 | `NODE_ENV` | `development` | Environment mode |
 | `PORT` | `3000` | Server port |
 | `LOG_LEVEL` | `info` | Winston log level |
-| `SERVICE_NAME` | `base-backend` | Service name for logs |
+| `SERVICE_NAME` | `jwt-backend` | Service name for logs |
 | `CORS_ORIGIN` | `*` | Allowed origins (comma-separated) |
 | `CORS_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed methods |
-| `CORS_CREDENTIALS` | `false` | Allow credentials |
+| `CORS_CREDENTIALS` | `true` | Allow credentials |
+| `JWT_SECRET` | (required) | Secret for signing access tokens (min 32 chars) |
+| `JWT_REFRESH_SECRET` | (required) | Secret for signing refresh tokens (min 32 chars) |
+| `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
+| `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
+| `COOKIE_SECRET` | (required) | Secret for signing cookies (min 32 chars) |
+| `COOKIE_SECURE` | `true` | Set secure flag on cookies |
+| `COOKIE_SAME_SITE` | `strict` | SameSite cookie attribute |
+| `CSRF_SECRET` | (required) | Secret for CSRF token generation (min 32 chars) |
 
 ## Available Scripts
 
@@ -460,13 +456,13 @@ Swagger UI available at `http://localhost:3000/docs` when the server is running.
 
 ### Error Handling
 
-Throw `AppError` for operational errors:
+Use `createError` from `http-errors` for operational errors:
 
 ```typescript
-import { AppError } from "../middleware/errorHandler";
+import { createError } from "../middleware/errorHandler";
 
-throw new AppError(404, "Resource not found");
-throw new AppError(400, "Invalid input");
+throw createError(404, "Resource not found");
+throw createError(400, "Invalid input");
 ```
 
 ### Validation
@@ -481,17 +477,19 @@ router.get("/:id", validate({ params: idSchema }), handler);
 router.get("/", validate({ query: filterSchema }), handler);
 ```
 
-### Async Handlers
+### Authentication
 
-Wrap async controllers with `asyncHandler`:
+Protected routes use the `authenticate` middleware. State-changing routes also need CSRF protection:
 
 ```typescript
-import asyncHandler from "../utils/asyncHandler";
+import { authenticate } from "../middleware/auth";
+import { doubleCsrfProtection } from "../middleware/csrf";
 
-router.get("/", asyncHandler(async (req, res) => {
-  const data = await someAsyncOperation();
-  res.json(data);
-}));
+// Read-only, requires login
+router.get("/", authenticate, handler);
+
+// State-changing, requires login + CSRF token
+router.post("/", authenticate, doubleCsrfProtection, handler);
 ```
 
 ### Logging
