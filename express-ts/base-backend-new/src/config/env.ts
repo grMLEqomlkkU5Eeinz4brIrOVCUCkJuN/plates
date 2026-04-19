@@ -1,7 +1,6 @@
 import { z } from "zod";
 import dotenv from "dotenv";
-import { stringToArray } from "utils/helpers";
-
+import { stringToArray } from "../utils/helpers.js";
 dotenv.config();
 
 const envSchema = z.object({
