@@ -4,6 +4,7 @@
 		"outDir": "./dist",
 		"rootDir": "./src",
 		"sourceMap": true,
+		"isolatedModules": true,
 		"resolveJsonModule": true,
 		"typeRoots": [
 			"./node_modules/@types",

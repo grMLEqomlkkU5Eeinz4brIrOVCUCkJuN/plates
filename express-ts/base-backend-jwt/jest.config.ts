@@ -19,6 +19,7 @@ const config: Config = {
 	setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
 	moduleNameMapper: {
 		"^@/(.*)$": "<rootDir>/$1",
+		"^(\\.{1,2}/.*)\\.js$": "$1",
 	},
 };
 
