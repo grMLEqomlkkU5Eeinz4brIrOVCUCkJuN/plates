@@ -86,17 +86,17 @@ import { z } from "zod";
 
 // Define schemas
 export const productSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(200),
-  price: z.number().positive(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+	id: z.string().uuid(),
+	name: z.string().min(1).max(200),
+	price: z.number().positive(),
+	createdAt: z.date(),
+	updatedAt: z.date(),
 });
 
 export const createProductSchema = productSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+	id: true,
+	createdAt: true,
+	updatedAt: true,
 });
 
 export const updateProductSchema = createProductSchema.partial();
@@ -108,20 +108,23 @@ export type UpdateProductData = z.infer<typeof updateProductSchema>;
 
 // Factory function
 export const createProduct = (data: CreateProductData): ProductData => {
-  const now = new Date();
-  return {
-    id: crypto.randomUUID(),
-    ...data,
-    createdAt: now,
-    updatedAt: now,
-  };
+	const now = new Date();
+	return {
+		id: crypto.randomUUID(),
+		...data,
+		createdAt: now,
+		updatedAt: now,
+	};
 };
 
 // Immutable update
-export const updateProduct = (product: ProductData, data: UpdateProductData): ProductData => ({
-  ...product,
-  ...data,
-  updatedAt: new Date(),
+export const updateProduct = (
+	product: ProductData,
+	data: UpdateProductData
+): ProductData => ({
+	...product,
+	...data,
+	updatedAt: new Date(),
 });
 ```
 
@@ -131,40 +134,50 @@ Create `src/controllers/product.controller.ts`:
 
 ```typescript
 import { Request, Response } from "express";
-import { createProduct, updateProduct, CreateProductData, UpdateProductData, ProductData } from "../models/product.model";
+import {
+	createProduct,
+	updateProduct,
+	CreateProductData,
+	UpdateProductData,
+	ProductData,
+} from "../models/product.model";
 import { createError } from "../middleware/errorHandler";
 
 // Replace with your database
 const products = new Map<string, ProductData>();
 
 export const createProductHandler = (req: Request, res: Response) => {
-  const product = createProduct(req.body as CreateProductData);
-  products.set(product.id, product);
-  res.status(201).json(product);
+	const product = createProduct(req.body as CreateProductData);
+	products.set(product.id, product);
+	res.status(201).json(product);
 };
 
 export const getProducts = (_req: Request, res: Response) => {
-  res.json([...products.values()]);
+	res.json([...products.values()]);
 };
 
 export const getProductById = (req: Request<{ id: string }>, res: Response) => {
-  const product = products.get(req.params.id);
-  if (!product) throw createError(404, "Product not found");
-  res.json(product);
+	const product = products.get(req.params.id);
+	if (!product) throw createError(404, "Product not found");
+	res.json(product);
 };
 
-export const updateProductHandler = (req: Request<{ id: string }>, res: Response) => {
-  const product = products.get(req.params.id);
-  if (!product) throw createError(404, "Product not found");
+export const updateProductHandler = (
+	req: Request<{ id: string }>,
+	res: Response
+) => {
+	const product = products.get(req.params.id);
+	if (!product) throw createError(404, "Product not found");
 
-  const updated = updateProduct(product, req.body as UpdateProductData);
-  products.set(updated.id, updated);
-  res.json(updated);
+	const updated = updateProduct(product, req.body as UpdateProductData);
+	products.set(updated.id, updated);
+	res.json(updated);
 };
 
 export const deleteProduct = (req: Request<{ id: string }>, res: Response) => {
-  if (!products.delete(req.params.id)) throw createError(404, "Product not found");
-  res.status(204).send();
+	if (!products.delete(req.params.id))
+		throw createError(404, "Product not found");
+	res.status(204).send();
 };
 ```
 
@@ -178,21 +191,24 @@ import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
-import { createProductSchema, updateProductSchema } from "../../../models/product.model";
 import {
-  createProductHandler,
-  getProducts,
-  getProductById,
-  updateProductHandler,
-  deleteProduct,
+	createProductSchema,
+	updateProductSchema,
+} from "../../../models/product.model";
+import {
+	createProductHandler,
+	getProducts,
+	getProductById,
+	updateProductHandler,
+	deleteProduct,
 } from "../../../controllers/product.controller";
 
 const router = Router();
 
 const idParamSchema = {
-  params: z.object({
-    id: z.string().uuid("Invalid product ID"),
-  }),
+	params: z.object({
+		id: z.string().uuid("Invalid product ID"),
+	}),
 };
 
 /**
@@ -230,11 +246,11 @@ router.get("/", authenticate, getProducts);
  *         description: Product created
  */
 router.post(
-  "/",
-  authenticate,
-  doubleCsrfProtection,
-  validate({ body: createProductSchema }),
-  createProductHandler
+	"/",
+	authenticate,
+	doubleCsrfProtection,
+	validate({ body: createProductSchema }),
+	createProductHandler
 );
 
 /**
@@ -276,11 +292,11 @@ router.get("/:id", authenticate, validate(idParamSchema), getProductById);
  *         description: Product updated
  */
 router.patch(
-  "/:id",
-  authenticate,
-  doubleCsrfProtection,
-  validate({ ...idParamSchema, body: updateProductSchema }),
-  updateProductHandler
+	"/:id",
+	authenticate,
+	doubleCsrfProtection,
+	validate({ ...idParamSchema, body: updateProductSchema }),
+	updateProductHandler
 );
 
 /**
@@ -301,11 +317,11 @@ router.patch(
  *         description: Product deleted
  */
 router.delete(
-  "/:id",
-  authenticate,
-  doubleCsrfProtection,
-  validate(idParamSchema),
-  deleteProduct
+	"/:id",
+	authenticate,
+	doubleCsrfProtection,
+	validate(idParamSchema),
+	deleteProduct
 );
 
 export default router;
@@ -340,36 +356,36 @@ Create `src/models/__tests__/product.model.test.ts`:
 import { createProduct, createProductSchema } from "../product.model";
 
 describe("Product Model", () => {
-  describe("createProduct", () => {
-    it("should create a product", () => {
-      const product = createProduct({
-        name: "Test Product",
-        price: 99.99,
-      });
+	describe("createProduct", () => {
+		it("should create a product", () => {
+			const product = createProduct({
+				name: "Test Product",
+				price: 99.99,
+			});
 
-      expect(product.id).toBeDefined();
-      expect(product.name).toBe("Test Product");
-      expect(product.price).toBe(99.99);
-    });
-  });
+			expect(product.id).toBeDefined();
+			expect(product.name).toBe("Test Product");
+			expect(product.price).toBe(99.99);
+		});
+	});
 });
 
 describe("createProductSchema", () => {
-  it("should validate correct input", () => {
-    const result = createProductSchema.safeParse({
-      name: "Product",
-      price: 10,
-    });
-    expect(result.success).toBe(true);
-  });
+	it("should validate correct input", () => {
+		const result = createProductSchema.safeParse({
+			name: "Product",
+			price: 10,
+		});
+		expect(result.success).toBe(true);
+	});
 
-  it("should reject negative price", () => {
-    const result = createProductSchema.safeParse({
-      name: "Product",
-      price: -5,
-    });
-    expect(result.success).toBe(false);
-  });
+	it("should reject negative price", () => {
+		const result = createProductSchema.safeParse({
+			name: "Product",
+			price: -5,
+		});
+		expect(result.success).toBe(false);
+	});
 });
 ```
 
@@ -380,34 +396,34 @@ import request from "supertest";
 import { createTestApp } from "../../../../test/app";
 
 describe("Product Routes", () => {
-  const app = createTestApp();
+	const app = createTestApp();
 
-  describe("POST /api/v1/products", () => {
-    it("should create a product", async () => {
-      const response = await request(app)
-        .post("/api/v1/products")
-        .send({ name: "Test", price: 10 });
+	describe("POST /api/v1/products", () => {
+		it("should create a product", async () => {
+			const response = await request(app)
+				.post("/api/v1/products")
+				.send({ name: "Test", price: 10 });
 
-      expect(response.status).toBe(201);
-      expect(response.body.name).toBe("Test");
-    });
+			expect(response.status).toBe(201);
+			expect(response.body.name).toBe("Test");
+		});
 
-    it("should reject invalid price", async () => {
-      const response = await request(app)
-        .post("/api/v1/products")
-        .send({ name: "Test", price: -5 });
+		it("should reject invalid price", async () => {
+			const response = await request(app)
+				.post("/api/v1/products")
+				.send({ name: "Test", price: -5 });
 
-      expect(response.status).toBe(400);
-    });
-  });
+			expect(response.status).toBe(400);
+		});
+	});
 
-  describe("GET /api/v1/products", () => {
-    it("should return array", async () => {
-      const response = await request(app).get("/api/v1/products");
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
-  });
+	describe("GET /api/v1/products", () => {
+		it("should return array", async () => {
+			const response = await request(app).get("/api/v1/products");
+			expect(response.status).toBe(200);
+			expect(Array.isArray(response.body)).toBe(true);
+		});
+	});
 });
 ```
 
@@ -419,34 +435,34 @@ npm test
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NODE_ENV` | `development` | Environment mode |
-| `PORT` | `3000` | Server port |
-| `LOG_LEVEL` | `info` | Winston log level |
-| `SERVICE_NAME` | `jwt-backend` | Service name for logs |
-| `CORS_ORIGIN` | `*` | Allowed origins (comma-separated) |
-| `CORS_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed methods |
-| `CORS_CREDENTIALS` | `true` | Allow credentials |
-| `JWT_SECRET` | (required) | Secret for signing access tokens (min 32 chars) |
-| `JWT_REFRESH_SECRET` | (required) | Secret for signing refresh tokens (min 32 chars) |
-| `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
-| `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
-| `COOKIE_SECRET` | (required) | Secret for signing cookies (min 32 chars) |
-| `COOKIE_SECURE` | `true` | Set secure flag on cookies |
-| `COOKIE_SAME_SITE` | `strict` | SameSite cookie attribute |
-| `CSRF_SECRET` | (required) | Secret for CSRF token generation (min 32 chars) |
+| Variable             | Default                             | Description                                      |
+| -------------------- | ----------------------------------- | ------------------------------------------------ |
+| `NODE_ENV`           | `development`                       | Environment mode                                 |
+| `PORT`               | `3000`                              | Server port                                      |
+| `LOG_LEVEL`          | `info`                              | Winston log level                                |
+| `SERVICE_NAME`       | `jwt-backend`                       | Service name for logs                            |
+| `CORS_ORIGIN`        | `*`                                 | Allowed origins (comma-separated)                |
+| `CORS_METHODS`       | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed methods                                  |
+| `CORS_CREDENTIALS`   | `true`                              | Allow credentials                                |
+| `JWT_SECRET`         | (required)                          | Secret for signing access tokens (min 32 chars)  |
+| `JWT_REFRESH_SECRET` | (required)                          | Secret for signing refresh tokens (min 32 chars) |
+| `JWT_ACCESS_EXPIRY`  | `15m`                               | Access token lifetime                            |
+| `JWT_REFRESH_EXPIRY` | `7d`                                | Refresh token lifetime                           |
+| `COOKIE_SECRET`      | (required)                          | Secret for signing cookies (min 32 chars)        |
+| `COOKIE_SECURE`      | `true`                              | Set secure flag on cookies                       |
+| `COOKIE_SAME_SITE`   | `strict`                            | SameSite cookie attribute                        |
+| `CSRF_SECRET`        | (required)                          | Secret for CSRF token generation (min 32 chars)  |
 
 ## Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start with hot reload |
-| `npm run build` | Compile TypeScript |
-| `npm start` | Run production build |
-| `npm test` | Run all tests |
-| `npm run test:watch` | Watch mode |
-| `npm run test:coverage` | With coverage |
+| Script                  | Description           |
+| ----------------------- | --------------------- |
+| `npm run dev`           | Start with hot reload |
+| `npm run build`         | Compile TypeScript    |
+| `npm start`             | Run production build  |
+| `npm test`              | Run all tests         |
+| `npm run test:watch`    | Watch mode            |
+| `npm run test:coverage` | With coverage         |
 
 ## API Documentation
 

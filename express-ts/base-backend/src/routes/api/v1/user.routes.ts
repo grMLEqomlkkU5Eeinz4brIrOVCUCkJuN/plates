@@ -148,11 +148,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get(
-	"/:id",
-	validate(idParamSchema),
-	asyncHandler(getUserById)
-);
+router.get("/:id", validate(idParamSchema), asyncHandler(getUserById));
 
 /**
  * @swagger
@@ -208,10 +204,6 @@ router.patch(
  *       404:
  *         description: User not found
  */
-router.delete(
-	"/:id",
-	validate(idParamSchema),
-	asyncHandler(deleteUser)
-);
+router.delete("/:id", validate(idParamSchema), asyncHandler(deleteUser));
 
 export default router;

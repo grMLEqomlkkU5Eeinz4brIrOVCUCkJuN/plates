@@ -8,7 +8,11 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export const createUserSchema = userSchema.omit({
+	id: true,
+	createdAt: true,
+	updatedAt: true,
+});
 export const updateUserSchema = createUserSchema.partial();
 
 export type UserData = z.infer<typeof userSchema>;

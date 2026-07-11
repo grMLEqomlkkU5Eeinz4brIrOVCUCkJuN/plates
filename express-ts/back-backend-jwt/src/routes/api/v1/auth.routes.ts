@@ -93,11 +93,7 @@ router.get("/csrf-token", asyncHandler(getCsrfToken));
  *       400:
  *         description: Validation error
  */
-router.post(
-	"/login",
-	validate({ body: loginSchema }),
-	asyncHandler(login)
-);
+router.post("/login", validate({ body: loginSchema }), asyncHandler(login));
 
 /**
  * @swagger

@@ -18,7 +18,10 @@ export const getUsers = (_req: Request, res: Response): void => {
 	res.json(allUsers);
 };
 
-export const getUserById = (req: Request<{ id: string }>, res: Response): void => {
+export const getUserById = (
+	req: Request<{ id: string }>,
+	res: Response
+): void => {
 	const user = users.get(req.params.id);
 	if (!user) {
 		throw createError(404, "User not found");
@@ -27,7 +30,10 @@ export const getUserById = (req: Request<{ id: string }>, res: Response): void =
 	res.json(user.toJSON());
 };
 
-export const updateUser = (req: Request<{ id: string }>, res: Response): void => {
+export const updateUser = (
+	req: Request<{ id: string }>,
+	res: Response
+): void => {
 	const user = users.get(req.params.id);
 	if (!user) {
 		throw createError(404, "User not found");
@@ -39,7 +45,10 @@ export const updateUser = (req: Request<{ id: string }>, res: Response): void =>
 	res.json(user.toJSON());
 };
 
-export const deleteUser = (req: Request<{ id: string }>, res: Response): void => {
+export const deleteUser = (
+	req: Request<{ id: string }>,
+	res: Response
+): void => {
 	const exists = users.delete(req.params.id);
 	if (!exists) {
 		throw createError(404, "User not found");

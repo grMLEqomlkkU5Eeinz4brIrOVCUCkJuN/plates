@@ -8,10 +8,11 @@ const stream: StreamOptions = {
 	},
 };
 
-const skip = () => env.NODE_ENV === "test";
+const skip = (): boolean => env.NODE_ENV === "test";
 
-const format = env.NODE_ENV === "production"
-	? ":remote-addr :method :url :status :res[content-length] - :response-time ms"
-	: ":method :url :status :response-time ms";
+const format =
+	env.NODE_ENV === "production"
+		? ":remote-addr :method :url :status :res[content-length] - :response-time ms"
+		: ":method :url :status :response-time ms";
 
 export const httpLogger = morgan(format, { stream, skip });

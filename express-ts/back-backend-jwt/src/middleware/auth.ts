@@ -10,12 +10,20 @@ export interface JwtPayload {
 	exp?: number;
 }
 
-export const generateAccessToken = (payload: Omit<JwtPayload, "iat" | "exp">): string => {
-	return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"] });
+export const generateAccessToken = (
+	payload: Omit<JwtPayload, "iat" | "exp">
+): string => {
+	return jwt.sign(payload, env.JWT_SECRET, {
+		expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"],
+	});
 };
 
-export const generateRefreshToken = (payload: Omit<JwtPayload, "iat" | "exp">): string => {
-	return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"] });
+export const generateRefreshToken = (
+	payload: Omit<JwtPayload, "iat" | "exp">
+): string => {
+	return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+		expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"],
+	});
 };
 
 export const verifyAccessToken = (token: string): JwtPayload => {
@@ -26,7 +34,11 @@ export const verifyRefreshToken = (token: string): JwtPayload => {
 	return jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
 };
 
-export const setAuthCookies = (res: Response, accessToken: string, refreshToken: string): void => {
+export const setAuthCookies = (
+	res: Response,
+	accessToken: string,
+	refreshToken: string
+): void => {
 	const cookieOptions = {
 		httpOnly: true,
 		secure: env.COOKIE_SECURE,
@@ -53,10 +65,17 @@ export const clearAuthCookies = (res: Response): void => {
 	};
 
 	res.clearCookie("access_token", cookieOptions);
-	res.clearCookie("refresh_token", { ...cookieOptions, path: "/api/v1/auth/refresh" });
+	res.clearCookie("refresh_token", {
+		...cookieOptions,
+		path: "/api/v1/auth/refresh",
+	});
 };
 
-export const authenticate = (req: Request, _res: Response, next: NextFunction): void => {
+export const authenticate = (
+	req: Request,
+	_res: Response,
+	next: NextFunction
+): void => {
 	const token = req.cookies?.access_token;
 
 	if (!token) {
@@ -78,7 +97,11 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
 	}
 };
 
-export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+export const optionalAuth = (
+	req: Request,
+	_res: Response,
+	next: NextFunction
+): void => {
 	const token = req.cookies?.access_token;
 
 	if (token) {

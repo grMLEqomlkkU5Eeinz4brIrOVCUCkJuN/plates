@@ -92,11 +92,7 @@ router.get("/csrf-token", getCsrfToken);
  *       400:
  *         description: Validation error
  */
-router.post(
-	"/login",
-	validate({ body: loginSchema }),
-	login
-);
+router.post("/login", validate({ body: loginSchema }), login);
 
 /**
  * @swagger
@@ -117,12 +113,7 @@ router.post(
  *       200:
  *         description: Logout successful
  */
-router.post(
-	"/logout",
-	authenticate,
-	doubleCsrfProtection,
-	logout
-);
+router.post("/logout", authenticate, doubleCsrfProtection, logout);
 
 /**
  * @swagger

@@ -5,10 +5,7 @@ const config: Config = {
 	testEnvironment: "node",
 	rootDir: "src",
 	moduleFileExtensions: ["ts", "js", "json"],
-	testMatch: [
-		"**/*.test.ts",
-		"**/*.spec.ts",
-	],
+	testMatch: ["**/*.test.ts", "**/*.spec.ts"],
 	collectCoverageFrom: [
 		"**/*.ts",
 		"!**/*.test.ts",

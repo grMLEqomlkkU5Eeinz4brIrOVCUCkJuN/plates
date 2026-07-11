@@ -27,7 +27,9 @@ describe("User Model", () => {
 
 			expect(updated.email).toBe("new@example.com");
 			expect(updated.name).toBe("Test User");
-			expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(user.updatedAt.getTime());
+			expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
+				user.updatedAt.getTime()
+			);
 			// Original is unchanged (immutable)
 			expect(user.email).toBe("old@example.com");
 		});

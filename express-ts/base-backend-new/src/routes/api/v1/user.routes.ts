@@ -114,11 +114,7 @@ router.get("/", getUsers);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post(
-	"/",
-	validate({ body: createUserSchema }),
-	createUserHandler
-);
+router.post("/", validate({ body: createUserSchema }), createUserHandler);
 
 /**
  * @swagger
@@ -147,11 +143,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get(
-	"/:id",
-	validate(idParamSchema),
-	getUserById
-);
+router.get("/:id", validate(idParamSchema), getUserById);
 
 /**
  * @swagger
@@ -207,10 +199,6 @@ router.patch(
  *       404:
  *         description: User not found
  */
-router.delete(
-	"/:id",
-	validate(idParamSchema),
-	deleteUser
-);
+router.delete("/:id", validate(idParamSchema), deleteUser);
 
 export default router;

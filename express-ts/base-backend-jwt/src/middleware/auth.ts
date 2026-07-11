@@ -10,16 +10,24 @@ export interface JwtPayload {
 	exp?: number;
 }
 
-export const generateAccessToken = (payload: Omit<JwtPayload, "iat" | "exp">) =>
-	jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"] });
+export const generateAccessToken = (
+	payload: Omit<JwtPayload, "iat" | "exp">
+): string =>
+	jwt.sign(payload, env.JWT_SECRET, {
+		expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"],
+	});
 
-export const generateRefreshToken = (payload: Omit<JwtPayload, "iat" | "exp">) =>
-	jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"] });
+export const generateRefreshToken = (
+	payload: Omit<JwtPayload, "iat" | "exp">
+): string =>
+	jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+		expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"],
+	});
 
-export const verifyAccessToken = (token: string) =>
+export const verifyAccessToken = (token: string): JwtPayload =>
 	jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
-export const verifyRefreshToken = (token: string) =>
+export const verifyRefreshToken = (token: string): JwtPayload =>
 	jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
 
 const cookieOptions = {
@@ -28,7 +36,11 @@ const cookieOptions = {
 	sameSite: env.COOKIE_SAME_SITE,
 } as const satisfies CookieOptions;
 
-export const setAuthCookies = (res: Response, accessToken: string, refreshToken: string) => {
+export const setAuthCookies = (
+	res: Response,
+	accessToken: string,
+	refreshToken: string
+): void => {
 	res.cookie("access_token", accessToken, {
 		...cookieOptions,
 		maxAge: 15 * 60 * 1000, // 15 minutes
@@ -41,12 +53,19 @@ export const setAuthCookies = (res: Response, accessToken: string, refreshToken:
 	});
 };
 
-export const clearAuthCookies = (res: Response) => {
+export const clearAuthCookies = (res: Response): void => {
 	res.clearCookie("access_token", cookieOptions);
-	res.clearCookie("refresh_token", { ...cookieOptions, path: "/api/v1/auth/refresh" });
+	res.clearCookie("refresh_token", {
+		...cookieOptions,
+		path: "/api/v1/auth/refresh",
+	});
 };
 
-export const authenticate = (req: Request, _res: Response, next: NextFunction) => {
+export const authenticate = (
+	req: Request,
+	_res: Response,
+	next: NextFunction
+): void => {
 	const token = req.cookies?.access_token;
 
 	if (!token) throw createError(401, "Access token required");
@@ -55,13 +74,19 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction) =
 		req.user = verifyAccessToken(token);
 		next();
 	} catch (error) {
-		if (error instanceof jwt.TokenExpiredError) throw createError(401, "Access token expired");
-		if (error instanceof jwt.JsonWebTokenError) throw createError(401, "Invalid access token");
+		if (error instanceof jwt.TokenExpiredError)
+			throw createError(401, "Access token expired");
+		if (error instanceof jwt.JsonWebTokenError)
+			throw createError(401, "Invalid access token");
 		throw error;
 	}
 };
 
-export const optionalAuth = (req: Request, _res: Response, next: NextFunction) => {
+export const optionalAuth = (
+	req: Request,
+	_res: Response,
+	next: NextFunction
+): void => {
 	const token = req.cookies?.access_token;
 
 	if (token) {

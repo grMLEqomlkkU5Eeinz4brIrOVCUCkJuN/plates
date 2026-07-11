@@ -6,12 +6,10 @@ describe("User Routes", () => {
 
 	describe("POST /api/v1/users", () => {
 		it("should create a user with valid data", async () => {
-			const response = await request(app)
-				.post("/api/v1/users")
-				.send({
-					email: "test@example.com",
-					name: "Test User",
-				});
+			const response = await request(app).post("/api/v1/users").send({
+				email: "test@example.com",
+				name: "Test User",
+			});
 
 			expect(response.status).toBe(201);
 			expect(response.body).toMatchObject({
@@ -22,23 +20,19 @@ describe("User Routes", () => {
 		});
 
 		it("should reject invalid email", async () => {
-			const response = await request(app)
-				.post("/api/v1/users")
-				.send({
-					email: "invalid",
-					name: "Test User",
-				});
+			const response = await request(app).post("/api/v1/users").send({
+				email: "invalid",
+				name: "Test User",
+			});
 
 			expect(response.status).toBe(400);
 			expect(response.body.success).toBe(false);
 		});
 
 		it("should reject missing name", async () => {
-			const response = await request(app)
-				.post("/api/v1/users")
-				.send({
-					email: "test@example.com",
-				});
+			const response = await request(app).post("/api/v1/users").send({
+				email: "test@example.com",
+			});
 
 			expect(response.status).toBe(400);
 			expect(response.body.success).toBe(false);
@@ -62,7 +56,9 @@ describe("User Routes", () => {
 		});
 
 		it("should return 404 for non-existent user", async () => {
-			const response = await request(app).get("/api/v1/users/00000000-0000-0000-0000-000000000000");
+			const response = await request(app).get(
+				"/api/v1/users/00000000-0000-0000-0000-000000000000"
+			);
 
 			expect(response.status).toBe(404);
 		});
@@ -106,12 +102,16 @@ describe("User Routes", () => {
 			const userId = createResponse.body.id;
 
 			// Then delete
-			const response = await request(app).delete(`/api/v1/users/${userId}`);
+			const response = await request(app).delete(
+				`/api/v1/users/${userId}`
+			);
 
 			expect(response.status).toBe(204);
 
 			// Verify deleted
-			const getResponse = await request(app).get(`/api/v1/users/${userId}`);
+			const getResponse = await request(app).get(
+				`/api/v1/users/${userId}`
+			);
 			expect(getResponse.status).toBe(404);
 		});
 	});

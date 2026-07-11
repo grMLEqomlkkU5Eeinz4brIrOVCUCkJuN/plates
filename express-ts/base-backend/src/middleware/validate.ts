@@ -25,7 +25,10 @@ export const validate = (schema: ValidationSchema) => {
 			const result = locationSchema.safeParse(req[location]);
 			if (!result.success) {
 				return next(
-					createError(400, `Validation error in ${location}: ${formatZodError(result.error)}`)
+					createError(
+						400,
+						`Validation error in ${location}: ${formatZodError(result.error)}`
+					)
 				);
 			}
 			if (location === "query") {

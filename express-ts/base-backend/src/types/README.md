@@ -41,12 +41,12 @@ Use for extending third-party library types:
 ```typescript
 // express.d.ts
 declare global {
-  namespace Express {
-    interface Request {
-      user?: { userId: string; role: string };
-      requestId?: string;
-    }
-  }
+	namespace Express {
+		interface Request {
+			user?: { userId: string; role: string };
+			requestId?: string;
+		}
+	}
 }
 export {};
 ```
@@ -58,27 +58,27 @@ Use for types shared across 3+ files:
 ```typescript
 // common.ts
 export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
+	data: T[];
+	total: number;
+	page: number;
+	limit: number;
 }
 
 export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
+	success: boolean;
+	data?: T;
+	error?: string;
 }
 ```
 
 ## What Does NOT Go Here
 
-| Don't put here... | Put it in... |
-|-------------------|--------------|
-| Model types | `models/*.model.ts` (with Zod schemas) |
-| Controller-specific types | The controller file itself |
-| Request/Response DTOs | The model or route file |
-| Service types | `services/*.service.ts` |
+| Don't put here...         | Put it in...                           |
+| ------------------------- | -------------------------------------- |
+| Model types               | `models/*.model.ts` (with Zod schemas) |
+| Controller-specific types | The controller file itself             |
+| Request/Response DTOs     | The model or route file                |
+| Service types             | `services/*.service.ts`                |
 
 ## Type Location Decision Tree
 
@@ -97,11 +97,11 @@ Otherwise → Keep it in the file where it's used
 
 ## Naming Conventions
 
-| Type | File Pattern | Example |
-|------|--------------|---------|
-| Library augmentation | `{library}.d.ts` | `express.d.ts` |
-| Model types + validation | `{entity}.model.ts` | `user.model.ts` |
-| Shared types | `{domain}.ts` | `common.ts`, `api.ts` |
+| Type                     | File Pattern        | Example               |
+| ------------------------ | ------------------- | --------------------- |
+| Library augmentation     | `{library}.d.ts`    | `express.d.ts`        |
+| Model types + validation | `{entity}.model.ts` | `user.model.ts`       |
+| Shared types             | `{domain}.ts`       | `common.ts`, `api.ts` |
 
 ## This Project's Approach
 
@@ -113,9 +113,9 @@ import { z } from "zod";
 
 // Schema defines shape AND validation
 export const userSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
-  name: z.string().min(1),
+	id: z.string().uuid(),
+	email: z.string().email(),
+	name: z.string().min(1),
 });
 
 // Type is derived from schema
@@ -123,11 +123,12 @@ export type UserData = z.infer<typeof userSchema>;
 
 // Class provides behavior
 export class User {
-  constructor(private data: UserData) {}
+	constructor(private data: UserData) {}
 }
 ```
 
 This approach:
+
 - Single source of truth (no type/validation drift)
 - Runtime validation included
 - Types auto-generated from schemas

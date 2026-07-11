@@ -29,7 +29,9 @@ describe("User Model", () => {
 
 			expect(user.email).toBe("new@example.com");
 			expect(user.name).toBe("Test User");
-			expect(user.updatedAt.getTime()).toBeGreaterThanOrEqual(originalUpdatedAt.getTime());
+			expect(user.updatedAt.getTime()).toBeGreaterThanOrEqual(
+				originalUpdatedAt.getTime()
+			);
 		});
 
 		it("should update name only", () => {

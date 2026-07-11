@@ -171,12 +171,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get(
-	"/:id",
-	authenticate,
-	validate(idParamSchema),
-	getUserById
-);
+router.get("/:id", authenticate, validate(idParamSchema), getUserById);
 
 /**
  * @swagger

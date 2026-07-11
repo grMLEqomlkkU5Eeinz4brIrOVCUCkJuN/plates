@@ -10,7 +10,7 @@ const server = app.listen(env.PORT, () => {
 	logger.info(`API docs available at http://localhost:${env.PORT}/docs`);
 });
 
-const shutdown = (signal: string) => {
+const shutdown = (signal: string): void => {
 	logger.info(`${signal} received, starting graceful shutdown...`);
 
 	server.close((err) => {
@@ -34,7 +34,10 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 process.on("uncaughtException", (error) => {
-	logger.error("Uncaught exception", { error: error.message, stack: error.stack });
+	logger.error("Uncaught exception", {
+		error: error.message,
+		stack: error.stack,
+	});
 	shutdown("uncaughtException");
 });
 
