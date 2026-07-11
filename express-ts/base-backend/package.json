@@ -28,6 +28,8 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@tsconfig/node22": "^22.0.5",
     "@types/cors": "^2.8.19",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
