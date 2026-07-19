@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Tests & coverage
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment — commit only the example
+.env
+.env.*
+!.env.example
+
+# Caches
+.eslintcache
+.cache/
+
+# Editors & OS
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

@@ -12,6 +12,7 @@ Project templates. Grab one, don't clone the whole repo.
 | `express-ts/base-backend-new`| none                  | Same, without the `asyncHandler` wrapper. |
 | `express-ts/back-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Uses `asyncHandler`. |
 | `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
+| `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |
 
 These share the config in [`standard/`](./standard) - Prettier, ESLint, TypeScript,
 lefthook, CI. See that folder's README before changing any of it.
@@ -22,6 +23,7 @@ lefthook, CI. See that folder's README before changing any of it.
 | ----------------- | ------------------------ | -------------------------------- |
 | `bevd/base`       | none                     | REST + tRPC + gRPC over shared services, plus a Vue 3 frontend typed end to end. |
 | `bevd/base-jwt`   | JWT (httpOnly cookies) + roles | The same, plus sessions, refresh-token rotation, and admin-only resources. |
+| `bevd/base-lacewing` | JWT via [lacewing](https://github.com/Smiduweorc/lacewing) + roles + CSRF | `base-jwt` with the token lifecycle moved onto lacewing, plus double-submit CSRF end to end (Vue client included). Doubles as a lacewing demo. |
 
 See [`bevd/`](./bevd). These use **Biome** instead of `standard/`'s ESLint + Prettier -
 that folder's README explains why, and lists the footguns worth knowing before you start.
@@ -69,6 +71,12 @@ npm run dev
 
 The `express-ts` JWT templates won't boot until `.env` has `JWT_SECRET`,
 `JWT_REFRESH_SECRET`, `COOKIE_SECRET` and `CSRF_SECRET` - each at least 32 characters.
+For `base-backend-lacewing` they must also be actually random - lacewing entropy-checks
+them at boot - so run `npm run secrets` and paste the output into `.env`.
+
+When a lacewing template's tokens need verifying from a second service while staying on
+HMAC, see [docs/symmetric-jwks.md](./docs/symmetric-jwks.md) before building a JWKS
+endpoint - a symmetric JWKS is a secret document, not a public one.
 
 ### Scripts (`express-ts`)
 
