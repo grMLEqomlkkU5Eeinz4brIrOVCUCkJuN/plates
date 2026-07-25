@@ -30,6 +30,13 @@ export const login = (req: Request, res: Response): void => {
 
 	setAuthCookies(res, accessToken, refreshToken);
 
+	// The CSRF token is bound to the access_token cookie (see
+	// middleware/csrf.ts). That cookie is only being set on this response,
+	// not present on the incoming request, so point the binding at the
+	// token this response just minted - otherwise the token is bound to
+	// req.ip and fails validation on every subsequent request.
+	req.cookies = { ...req.cookies, access_token: accessToken };
+
 	res.json({
 		success: true,
 		message: "Login successful",
@@ -62,6 +69,9 @@ export const refresh = (req: Request, res: Response): void => {
 		const newRefreshToken = generateRefreshToken(tokenPayload);
 
 		setAuthCookies(res, newAccessToken, newRefreshToken);
+
+		// Rebind the CSRF token to the rotated session, as in login.
+		req.cookies = { ...req.cookies, access_token: newAccessToken };
 
 		res.json({
 			success: true,

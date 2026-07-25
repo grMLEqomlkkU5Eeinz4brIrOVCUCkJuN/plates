@@ -13,6 +13,7 @@ const config: Config = {
 		"!**/types/**",
 	],
 	coverageDirectory: "../coverage",
+	setupFiles: ["<rootDir>/test/env.ts"],
 	setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
 	moduleNameMapper: {
 		"^@/(.*)$": "<rootDir>/$1",
