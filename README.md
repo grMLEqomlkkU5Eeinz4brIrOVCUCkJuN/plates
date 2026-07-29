@@ -2,6 +2,25 @@
 
 Project templates. Grab one, don't clone the whole repo.
 
+## Scope
+
+These exist to spin up **microservices** - one service, one job, an HTTP or RPC boundary
+in front of it. That is why they are thin: no queue, no cache, no CMS, no admin panel, no
+opinion about your infrastructure. A template that guesses those wrong costs more time
+than one that leaves them out.
+
+More importantly this is why we are not really using a lot of cooler new hippier frameworks at the moment.
+
+That said, I might be open to adding microservice templates of various languages in this repo.
+
+The full-stack **`bevd/`** templates and their Vue frontend were added later, because
+enough people asked for something they could point a browser at without wiring a second
+repo first. They are still microservice-shaped underneath - services own the logic, the
+transports only translate - and the frontend is a working client, not a starter app.
+
+[**docs/frameworks.md**](./docs/frameworks.md) lists what every template runs on, backend
+and frontend, and why each piece is there - read it if you are choosing between them.
+
 ## Templates
 
 ### Backend only - Express + TypeScript
