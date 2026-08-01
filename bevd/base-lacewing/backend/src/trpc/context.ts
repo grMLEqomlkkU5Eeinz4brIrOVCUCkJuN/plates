@@ -2,7 +2,7 @@ import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { parseBearer, readTokenCookie } from "lacewing";
 import type { Database } from "../db";
 import type { Actor } from "../lib/actor";
-import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE, readCookies } from "../lib/cookies";
+import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../lib/cookies";
 import { verifyAccessToken } from "../lib/jwt";
 import type { Logger } from "../lib/logger";
 
@@ -84,7 +84,6 @@ async function resolveActor(
 export function createContextFactory({ db, requestId, log }: ContextDeps) {
 	return async ({ req, resHeaders }: FetchCreateContextFnOptions): Promise<Context> => {
 		const { actor, source } = await resolveActor(req);
-		const cookies = readCookies(req);
 
 		return {
 			db,
@@ -92,9 +91,21 @@ export function createContextFactory({ db, requestId, log }: ContextDeps) {
 			resHeaders,
 			actor,
 			actorSource: source,
-			refreshToken: cookies[REFRESH_COOKIE],
+			// Both read with lacewing's readTokenCookie rather than a general
+			// cookie parser, for the duplicate-name case. Nothing settles whether
+			// the first or the last `csrf_token=` wins when a header carries two,
+			// so a parser that picks one is guessing - and an attacker who can
+			// write a cookie on this domain (a subdomain, a cookie-injection bug)
+			// tosses in a second one whose value they know, then echoes it in the
+			// header and walks through the double-submit check. readTokenCookie
+			// refuses an ambiguous name outright, so the guess never happens: the
+			// mutation is denied instead of maybe-accepted. The legitimate user is
+			// denied too while the extra cookie is in place, which is the trade
+			// worth making - an app that visibly stops beats one that silently
+			// waves the attacker through.
+			refreshToken: readTokenCookie(req, REFRESH_COOKIE),
 			csrf: {
-				cookie: cookies[CSRF_COOKIE],
+				cookie: readTokenCookie(req, CSRF_COOKIE),
 				header: req.headers.get("x-csrf-token") ?? undefined,
 			},
 			requestId,

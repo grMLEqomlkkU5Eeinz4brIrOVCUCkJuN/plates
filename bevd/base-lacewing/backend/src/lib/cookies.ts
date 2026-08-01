@@ -1,4 +1,4 @@
-import { parseCookie, stringifySetCookie } from "cookie";
+import { stringifySetCookie } from "cookie";
 import { buildTokenCookie, clearTokenCookie } from "lacewing";
 import { env } from "../config/env";
 
@@ -18,12 +18,6 @@ export const CSRF_COOKIE = "csrf_token";
  * work unchanged in dev.
  */
 const SAME_SITE = env.COOKIE_SAME_SITE === "strict" ? "Strict" : "Lax";
-
-export function readCookies(req: Request): Record<string, string | undefined> {
-	const header = req.headers.get("cookie");
-
-	return header ? parseCookie(header) : {};
-}
 
 export function sessionCookies(
 	accessToken: string,

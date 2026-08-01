@@ -31,7 +31,7 @@
 		"cookie": "^2.0.1",
 		"drizzle-orm": "^0.45.2",
 		"elysia": "^1.4.29",
-		"lacewing": "^1.0.0",
+		"lacewing": "^1.0.1",
 		"pg": "^8.22.0",
 		"pino": "^10.3.1",
 		"pino-pretty": "^13.1.3"

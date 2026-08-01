@@ -128,6 +128,41 @@ describe("app over http", () => {
 		expect(body.error.data.code).toBe("FORBIDDEN");
 	});
 
+	it("refuses a mutation when a second csrf_token cookie shadows the real one", async () => {
+		// Cookie tossing. Double-submit rests on the attacker not being able to
+		// read csrf_token - but an attacker who can *write* a cookie on this
+		// domain (a subdomain they hold, a cookie-injection bug) does not need to
+		// read it. They append a second csrf_token whose value they chose, then
+		// echo that value in the header. Both copies ride along:
+		//
+		//   Cookie: csrf_token=<real>; csrf_token=<attacker's>
+		//
+		// Nothing decides which one a server takes, so a parser that returns one
+		// is guessing, and on the wrong guess the header matches and the check
+		// passes. lacewing's readTokenCookie refuses a duplicated name instead,
+		// so the pair never gets compared and the mutation is denied.
+		//
+		// The attacker's copy is sent *first* here, which is the whole craft of
+		// the attack rather than a detail of the test: browsers order cookies by
+		// path specificity, so one set on a deeper path (/trpc) precedes the
+		// legitimate /-scoped one. A first-match parser - which is what `cookie`
+		// does - hands back exactly the value the attacker planted.
+		const session = await registerAlice();
+		const attackerToken = "attackerchosencsrfvalue";
+
+		const response = await trpc(
+			"post.create",
+			{ title: "Tossed", body: "x" },
+			`${CSRF_COOKIE}=${attackerToken}; ${session.cookie}`,
+			attackerToken,
+		);
+
+		expect(response.status).toBe(403);
+
+		const body = (await response.json()) as { error: { data: { code: string } } };
+		expect(body.error.data.code).toBe("FORBIDDEN");
+	});
+
 	it("refuses a tampered cookie", async () => {
 		const session = await registerAlice();
 
