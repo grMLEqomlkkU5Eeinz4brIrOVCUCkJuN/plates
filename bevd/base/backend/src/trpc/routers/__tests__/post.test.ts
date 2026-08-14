@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { beforeEach, describe, expect, it } from "vitest";
-import { callerFor } from "../../test/context";
-import { createTestDatabase } from "../../test/db";
+import { callerFor } from "../../../test/context";
+import { createTestDatabase } from "../../../test/db";
 
 describe("post router", () => {
 	let trpc: ReturnType<typeof callerFor>;

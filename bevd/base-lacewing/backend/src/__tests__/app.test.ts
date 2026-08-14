@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "./app";
-import { createDatabase, type Database } from "./db";
-import { ACCESS_COOKIE, CSRF_COOKIE } from "./lib/cookies";
-import { createTestDatabase } from "./test/db";
+import { createApp } from "../app";
+import { createDatabase, type Database } from "../db";
+import { ACCESS_COOKIE, CSRF_COOKIE } from "../lib/cookies";
+import { createTestDatabase } from "../test/db";
 
 /**
  * The full HTTP path through Elysia with `app.handle()` - no port is bound. This is what

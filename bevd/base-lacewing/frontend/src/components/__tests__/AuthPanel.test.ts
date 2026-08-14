@@ -1,11 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import AuthPanel from "./AuthPanel.vue";
+import AuthPanel from "../AuthPanel.vue";
 
 const login = vi.fn();
 const register = vi.fn();
 
-vi.mock("../composables/useAuth", () => ({
+vi.mock("../../composables/useAuth", () => ({
 	useAuth: () => ({ login, register }),
 }));
 

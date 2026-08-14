@@ -34,7 +34,7 @@ bun run dev
 | Secret hygiene | `lib/jwt.ts` + boot | `importKey` entropy-checks `JWT_SECRET`. The old `dev-only-secret-...` value from `base-jwt` no longer boots - that is a feature, and the committed dev value is now real random bytes. |
 | Cookie transport | `lib/cookies.ts` | The token cookies come from `buildTokenCookie`, where `HttpOnly; Secure; SameSite` are facts, not options. `COOKIE_SECURE` is gone from the env - there is nothing to switch. |
 | Bearer transport | `trpc/context.ts`, `grpc/auth.ts` | `parseBearer`: strict RFC 6750, exactly one `Bearer <token>`, exact-case scheme, no query-string tokens - for curl, services, and gRPC metadata. |
-| Inspection, loudly | `trpc/routers/auth.test.ts` | `unsafeDecode` returns an `UntrustedJwt` the type system refuses wherever a `VerifiedJwt` is required - good for tests and debugging, useless for auth logic. |
+| Inspection, loudly | `trpc/routers/__tests__/auth.test.ts` | `unsafeDecode` returns an `UntrustedJwt` the type system refuses wherever a `VerifiedJwt` is required - good for tests and debugging, useless for auth logic. |
 
 **The refresh token is still opaque, on purpose.** `base-jwt`'s argument holds: a
 DB-backed random token is revocable for real and rotates on every use. lacewing has JWT
@@ -97,7 +97,7 @@ resolve to anonymous.
 ## Tests
 
 ```sh
-bun run test    # 46 backend, 10 frontend
+bun run test    # 47 backend, 10 frontend
 ```
 
 Everything `base-jwt` pinned down (ownership, escalation attempts, rotation, replay,

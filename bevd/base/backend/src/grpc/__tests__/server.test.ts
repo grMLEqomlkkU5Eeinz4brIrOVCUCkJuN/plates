@@ -1,8 +1,8 @@
 import * as grpc from "@grpc/grpc-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createTestDatabase } from "../test/db";
-import { PostServiceClient } from "./proto";
-import { createGrpcServer, startGrpcServer } from "./server";
+import { createTestDatabase } from "../../test/db";
+import { PostServiceClient } from "../proto";
+import { createGrpcServer, startGrpcServer } from "../server";
 
 /**
  * A real gRPC server on a real (ephemeral) port, called by a real gRPC client.

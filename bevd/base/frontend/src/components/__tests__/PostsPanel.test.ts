@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import PostsPanel from "./PostsPanel.vue";
+import PostsPanel from "../PostsPanel.vue";
 
 const list = vi.fn();
 const create = vi.fn();
@@ -8,7 +8,7 @@ const update = vi.fn();
 const remove = vi.fn();
 
 // The component talks to the real client module, so that is what gets stubbed.
-vi.mock("../lib/trpc", () => ({
+vi.mock("../../lib/trpc", () => ({
 	trpc: {
 		post: {
 			list: { query: (...args: unknown[]) => list(...args) },

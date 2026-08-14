@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CurrentUser } from "../composables/useAuth";
-import PostsPanel from "./PostsPanel.vue";
+import type { CurrentUser } from "../../composables/useAuth";
+import PostsPanel from "../PostsPanel.vue";
 
 const list = vi.fn();
 const create = vi.fn();
@@ -14,11 +14,11 @@ const BOB = "22222222-2222-4222-8222-222222222222";
 // Stands in for whoever is signed in. The tests set it before mounting.
 const currentUser = { value: null as CurrentUser | null };
 
-vi.mock("../composables/useAuth", () => ({
+vi.mock("../../composables/useAuth", () => ({
 	useAuth: () => ({ user: currentUser }),
 }));
 
-vi.mock("../lib/trpc", () => ({
+vi.mock("../../lib/trpc", () => ({
 	trpc: {
 		post: {
 			list: { query: (...args: unknown[]) => list(...args) },

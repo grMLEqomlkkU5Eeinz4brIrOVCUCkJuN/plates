@@ -1,11 +1,11 @@
 import * as grpc from "@grpc/grpc-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Database } from "../db";
-import type { PublicUser } from "../db/schema";
-import { accessTokenFor, seedUser } from "../test/auth";
-import { createTestDatabase } from "../test/db";
-import { PostServiceClient, UserServiceClient } from "./proto";
-import { createGrpcServer, startGrpcServer } from "./server";
+import type { Database } from "../../db";
+import type { PublicUser } from "../../db/schema";
+import { accessTokenFor, seedUser } from "../../test/auth";
+import { createTestDatabase } from "../../test/db";
+import { PostServiceClient, UserServiceClient } from "../proto";
+import { createGrpcServer, startGrpcServer } from "../server";
 
 /**
  * A real gRPC server on a real port, called by a real gRPC client with real signed

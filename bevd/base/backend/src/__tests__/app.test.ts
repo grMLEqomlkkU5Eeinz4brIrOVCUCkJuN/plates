@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "./app";
-import { createDatabase } from "./db";
-import { createTestDatabase } from "./test/db";
+import { createApp } from "../app";
+import { createDatabase } from "../db";
+import { createTestDatabase } from "../test/db";
 
 /**
  * These go through the real Elysia instance with `app.handle()` - no port is bound.

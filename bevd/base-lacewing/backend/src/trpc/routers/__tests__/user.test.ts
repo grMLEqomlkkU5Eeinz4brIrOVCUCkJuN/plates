@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Database } from "../../db";
-import type { PublicUser } from "../../db/schema";
-import { actorFor, seedUser } from "../../test/auth";
-import { callerAs } from "../../test/context";
-import { createTestDatabase } from "../../test/db";
+import type { Database } from "../../../db";
+import type { PublicUser } from "../../../db/schema";
+import { actorFor, seedUser } from "../../../test/auth";
+import { callerAs } from "../../../test/context";
+import { createTestDatabase } from "../../../test/db";
 
 describe("admin-only user router", () => {
 	let db: Database;
