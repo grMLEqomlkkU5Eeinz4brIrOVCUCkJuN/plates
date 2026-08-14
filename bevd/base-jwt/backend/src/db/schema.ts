@@ -20,7 +20,7 @@ export const users = pgTable(
 		id: uuid("id").primaryKey().defaultRandom(),
 		email: text("email").notNull(),
 		name: text("name").notNull(),
-		// Never the password itself. See lib/password.ts.
+		// Never the password itself. See auth/password.ts.
 		passwordHash: text("password_hash").notNull(),
 		role: userRole("role").notNull().default("user"),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

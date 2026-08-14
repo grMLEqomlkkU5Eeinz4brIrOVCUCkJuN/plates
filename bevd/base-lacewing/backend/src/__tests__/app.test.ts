@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 import { createDatabase, type Database } from "../db";
-import { ACCESS_COOKIE, CSRF_COOKIE } from "../lib/cookies";
+import { ACCESS_COOKIE, CSRF_COOKIE } from "../http/cookies";
+import { logger } from "../lib/logger";
 import { createTestDatabase } from "../test/db";
 
 /**
@@ -15,7 +16,7 @@ describe("app over http", () => {
 
 	beforeEach(async () => {
 		db = await createTestDatabase();
-		app = createApp({ db });
+		app = createApp({ db, log: logger });
 	});
 
 	function trpc(
@@ -198,7 +199,7 @@ describe("app over http", () => {
 		// procedure, which is exactly the case that used to hand the client the failing
 		// SQL, its parameters and a stack trace.
 		const { db: missing } = createDatabase("postgres://nobody:hunter2@127.0.0.1:59999/nope");
-		const broken = createApp({ db: missing });
+		const broken = createApp({ db: missing, log: logger });
 
 		const response = await broken.handle(
 			new Request("http://localhost/trpc/auth.login", {

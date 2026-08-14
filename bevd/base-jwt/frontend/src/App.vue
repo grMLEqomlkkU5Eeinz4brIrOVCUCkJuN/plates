@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import AuthPanel from "./components/AuthPanel.vue";
 import PostsPanel from "./components/PostsPanel.vue";
 import { useAuth } from "./composables/useAuth";
-import { trpc } from "./lib/trpc";
+import { useHealth } from "./composables/useHealth";
 
 const { user, ready, load, logout } = useAuth();
-
-const status = ref("checking...");
+const { status, check } = useHealth();
 
 const isAdmin = computed(() => user.value?.role === "admin");
 
@@ -18,13 +17,7 @@ onMounted(async () => {
 	// nor the app - otherwise a signed-in user gets a flash of "please sign in".
 	await load();
 
-	try {
-		const { status: ok } = await trpc.health.ping.query();
-
-		status.value = ok;
-	} catch {
-		status.value = "unreachable - is the backend running?";
-	}
+	await check();
 });
 </script>
 

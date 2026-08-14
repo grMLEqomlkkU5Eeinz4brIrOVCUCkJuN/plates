@@ -1,8 +1,8 @@
 import { unsafeDecode } from "lacewing";
 import { beforeEach, describe, expect, it } from "vitest";
+import { verifyAccessToken } from "../../../auth/jwt";
 import type { Database } from "../../../db";
-import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../../../lib/cookies";
-import { verifyAccessToken } from "../../../lib/jwt";
+import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../../../http/cookies";
 import { callerWithHeaders } from "../../../test/context";
 import { createTestDatabase } from "../../../test/db";
 

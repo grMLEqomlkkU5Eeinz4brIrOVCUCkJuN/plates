@@ -1,8 +1,8 @@
+import { signAccessToken } from "../auth/jwt";
+import { hashPassword } from "../auth/password";
+import type { Actor } from "../auth/policy";
 import type { Database } from "../db";
 import { type PublicUser, toPublicUser, type UserRole, users } from "../db/schema";
-import type { Actor } from "../lib/actor";
-import { signAccessToken } from "../lib/jwt";
-import { hashPassword } from "../lib/password";
 
 interface SeedUserOptions {
 	email?: string;

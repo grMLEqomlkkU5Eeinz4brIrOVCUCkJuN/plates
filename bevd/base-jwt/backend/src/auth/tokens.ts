@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { env } from "../config/env";
 
 /**
  * Refresh tokens are opaque random strings, not JWTs - there is nothing to decode and
@@ -14,4 +15,16 @@ export function generateRefreshToken(): string {
 
 export function hashRefreshToken(token: string): string {
 	return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * How long a freshly minted refresh token is good for.
+ *
+ * The lifetime is configuration, so reading it lives here rather than in the service.
+ * Services take a ServiceCtx and their input, and nothing else - no service in this
+ * codebase imports `env`, which is what keeps them callable from a test, a script or a
+ * transport without a boot-time environment behind them.
+ */
+export function refreshTokenExpiresAt(now = Date.now()): Date {
+	return new Date(now + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 }

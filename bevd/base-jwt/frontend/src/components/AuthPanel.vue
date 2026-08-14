@@ -1,35 +1,29 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useAsync } from "../composables/useAsync";
 import { useAuth } from "../composables/useAuth";
 
 const { login, register } = useAuth();
+
+// The server says "Invalid email or password" for both a wrong password and an unknown
+// account - deliberately. useAsync shows what it said and does not try to be helpful.
+const { busy, error, run } = useAsync("Could not sign in");
 
 const mode = ref<"login" | "register">("login");
 const email = ref("");
 const name = ref("");
 const password = ref("");
-const error = ref<string | null>(null);
-const busy = ref(false);
 
 async function submit() {
-	busy.value = true;
-	error.value = null;
-
-	try {
+	const ok = await run(async () => {
 		if (mode.value === "login") {
 			await login(email.value, password.value);
 		} else {
 			await register(email.value, name.value, password.value);
 		}
+	});
 
-		password.value = "";
-	} catch (cause) {
-		// The server says "Invalid email or password" for both a wrong password and an
-		// unknown account - deliberately. Show what it said, do not try to be helpful.
-		error.value = cause instanceof Error ? cause.message : "Could not sign in";
-	} finally {
-		busy.value = false;
-	}
+	if (ok) password.value = "";
 }
 </script>
 

@@ -1,5 +1,5 @@
 import type { PublicUser } from "../../db/schema";
-import { clearedCookies, sessionCookies } from "../../lib/cookies";
+import { clearedCookies, sessionCookies } from "../../http/cookies";
 import {
 	LoginInput,
 	login,
@@ -15,6 +15,10 @@ import { protectedProcedure, publicProcedure, router } from "../trpc";
 
 /**
  * Puts the session in httpOnly cookies and returns only the user.
+ *
+ * This is the one router that does real work, and all of it is transport: the service
+ * hands back a `Session` and knows nothing about how it travels. Over gRPC the same
+ * session goes back on the wire instead (see grpc/handlers/auth.ts).
  *
  * The tokens deliberately do not appear in the response body: if the browser cannot read
  * them, neither can injected script. The Vue app never holds a token - it just gets 401s
@@ -32,16 +36,12 @@ export const authRouter = router({
 	/** trpc.auth.register.mutate({ email, name, password }) */
 	register: publicProcedure
 		.input(RegisterInput)
-		.mutation(async ({ ctx, input }) =>
-			commitSession(ctx, await register(ctx.db, ctx.log, input)),
-		),
+		.mutation(async ({ ctx, input }) => commitSession(ctx, await register(ctx, input))),
 
 	/** trpc.auth.login.mutate({ email, password }) */
 	login: publicProcedure
 		.input(LoginInput)
-		.mutation(async ({ ctx, input }) =>
-			commitSession(ctx, await login(ctx.db, ctx.log, input)),
-		),
+		.mutation(async ({ ctx, input }) => commitSession(ctx, await login(ctx, input))),
 
 	/**
 	 * trpc.auth.refresh.mutate()
@@ -50,12 +50,12 @@ export const authRouter = router({
 	 * cannot pass one in. Rotates the token - see auth.service.ts.
 	 */
 	refresh: publicProcedure.mutation(async ({ ctx }) =>
-		commitSession(ctx, await refresh(ctx.db, ctx.log, ctx.refreshToken)),
+		commitSession(ctx, await refresh(ctx, ctx.refreshToken)),
 	),
 
 	/** trpc.auth.logout.mutate() - revokes the refresh token and clears both cookies. */
 	logout: publicProcedure.mutation(async ({ ctx }) => {
-		await logout(ctx.db, ctx.log, ctx.refreshToken);
+		await logout(ctx, ctx.refreshToken);
 
 		for (const cookie of clearedCookies()) {
 			ctx.resHeaders.append("set-cookie", cookie);
@@ -65,5 +65,5 @@ export const authRouter = router({
 	}),
 
 	/** trpc.auth.me.query() - 401 when signed out, which is how the client knows. */
-	me: protectedProcedure.query(({ ctx }) => me(ctx.db, ctx.actor)),
+	me: protectedProcedure.query(({ ctx }) => me(ctx)),
 });

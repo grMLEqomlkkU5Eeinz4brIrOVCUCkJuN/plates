@@ -1,6 +1,6 @@
+import { hashPassword } from "../auth/password";
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
-import { hashPassword } from "../lib/password";
 import { createDatabase } from "./index";
 import { posts, users } from "./schema";
 

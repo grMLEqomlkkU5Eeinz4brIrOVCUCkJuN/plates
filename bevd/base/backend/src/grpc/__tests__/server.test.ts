@@ -1,5 +1,6 @@
 import * as grpc from "@grpc/grpc-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { logger } from "../../lib/logger";
 import { createTestDatabase } from "../../test/db";
 import { PostServiceClient } from "../proto";
 import { createGrpcServer, startGrpcServer } from "../server";
@@ -32,7 +33,7 @@ describe("grpc PostService", () => {
 	let client: Client;
 
 	beforeEach(async () => {
-		server = createGrpcServer(await createTestDatabase());
+		server = createGrpcServer({ db: await createTestDatabase(), log: logger });
 
 		const port = await startGrpcServer(server, 0);
 

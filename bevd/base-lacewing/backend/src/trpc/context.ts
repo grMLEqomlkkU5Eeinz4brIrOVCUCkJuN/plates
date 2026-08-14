@@ -1,10 +1,11 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { parseBearer, readTokenCookie } from "lacewing";
+import { verifyAccessToken } from "../auth/jwt";
+import type { Actor } from "../auth/policy";
 import type { Database } from "../db";
-import type { Actor } from "../lib/actor";
-import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../lib/cookies";
-import { verifyAccessToken } from "../lib/jwt";
+import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../http/cookies";
 import type { Logger } from "../lib/logger";
+import type { ServiceCtx } from "../services/context";
 
 /**
  * Where the actor's token came from. It matters for exactly one thing: CSRF.
@@ -16,12 +17,16 @@ import type { Logger } from "../lib/logger";
  */
 export type ActorSource = "cookie" | "bearer" | "direct";
 
-export interface Context {
-	db: Database;
+/**
+ * The tRPC context extends ServiceCtx rather than redeclaring its fields, so a resolver
+ * can hand `ctx` straight to a service: `listPosts(ctx, input)`. The service's parameter
+ * type is ServiceCtx, so everything added below - the raw Request, the response headers,
+ * the CSRF pair - is invisible to it. The transport can see the transport; the service
+ * cannot.
+ */
+export interface Context extends ServiceCtx {
 	req: Request;
 	resHeaders: Headers;
-	/** Null for an anonymous caller. Procedures decide whether that is allowed. */
-	actor: Actor | null;
 	actorSource: ActorSource | null;
 	/** Only auth.refresh and auth.logout look at this. */
 	refreshToken: string | undefined;
@@ -29,8 +34,6 @@ export interface Context {
 	csrf: { cookie: string | undefined; header: string | undefined };
 	/** Shared with the access log and returned to the client on an error. */
 	requestId: string;
-	/** Already bound to the requestId and, once known, the user. Use this, not the root. */
-	log: Logger;
 }
 
 export interface ContextDeps {

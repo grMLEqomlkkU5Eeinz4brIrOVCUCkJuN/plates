@@ -1,15 +1,19 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import type { Database } from "../db";
 import type { Logger } from "../lib/logger";
+import type { ServiceCtx } from "../services/context";
 
-export interface Context {
-	db: Database;
+/**
+ * The tRPC context extends ServiceCtx rather than redeclaring its fields, so a resolver
+ * can hand `ctx` straight to a service: `listPosts(ctx, input)`. The service's parameter
+ * type is ServiceCtx, so everything added below - the raw Request, the response headers -
+ * is invisible to it. The transport can see the transport; the service cannot.
+ */
+export interface Context extends ServiceCtx {
 	req: Request;
 	resHeaders: Headers;
 	/** Shared with the access log and returned to the client on an error. */
 	requestId: string;
-	/** Already bound to the requestId - use this, not the root logger. */
-	log: Logger;
 }
 
 export interface ContextDeps {

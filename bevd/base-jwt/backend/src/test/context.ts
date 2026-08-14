@@ -1,6 +1,7 @@
+import type { Actor } from "../auth/policy";
 import type { Database } from "../db";
-import type { Actor } from "../lib/actor";
 import { logger } from "../lib/logger";
+import type { ServiceCtx } from "../services/context";
 import { appRouter } from "../trpc/routers";
 import { createCallerFactory } from "../trpc/trpc";
 
@@ -41,4 +42,14 @@ export function callerWithHeaders(
 /** The common case: act as this user (or as nobody) and ignore the response headers. */
 export function callerAs(db: Database, actor: Actor | null) {
 	return callerWithHeaders(db, { actor }).trpc;
+}
+
+/**
+ * A bare ServiceCtx, for testing a service without a transport in the way.
+ *
+ * This is what the uniform `(ctx, input)` signature buys: the same three fields every
+ * service takes, built in one line, with no router, no caller factory and no Request.
+ */
+export function serviceCtx(db: Database, actor: Actor | null = null): ServiceCtx {
+	return { db, log: logger, actor };
 }

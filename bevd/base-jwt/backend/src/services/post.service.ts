@@ -1,9 +1,10 @@
 import { type } from "arktype";
 import { and, desc, eq, or } from "drizzle-orm";
+import { type Actor, canMutate, requireActor } from "../auth/actor";
 import type { Database } from "../db";
 import { type Post, posts } from "../db/schema";
-import { type Actor, canMutate, requireActor } from "../lib/actor";
 import { AppError, parseInput } from "../lib/errors";
+import type { ServiceCtx } from "./context";
 
 export const ListPostsInput = type({
 	"limit?": "1 <= number.integer <= 100",
@@ -45,42 +46,38 @@ function visibleTo(actor: Actor | null) {
 	return eq(posts.published, true);
 }
 
-export async function listPosts(
-	db: Database,
-	actor: Actor | null,
-	input: unknown,
-): Promise<Post[]> {
+export async function listPosts(ctx: ServiceCtx, input: unknown): Promise<Post[]> {
 	const { limit, publishedOnly } = parseInput(ListPostsInput, input);
 
-	const visible = visibleTo(actor);
+	const visible = visibleTo(ctx.actor);
 	const onlyPublished = publishedOnly ? eq(posts.published, true) : undefined;
 
-	return db.query.posts.findMany({
+	return ctx.db.query.posts.findMany({
 		where: and(visible, onlyPublished),
 		orderBy: desc(posts.createdAt),
 		limit: limit ?? 20,
 	});
 }
 
-export async function getPost(db: Database, actor: Actor | null, input: unknown): Promise<Post> {
+export async function getPost(ctx: ServiceCtx, input: unknown): Promise<Post> {
 	const { id } = parseInput(PostIdInput, input);
 
-	const post = await db.query.posts.findFirst({ where: eq(posts.id, id) });
+	const post = await ctx.db.query.posts.findFirst({ where: eq(posts.id, id) });
 
 	// NOT_FOUND rather than FORBIDDEN for someone else's draft. FORBIDDEN would confirm
 	// the post exists, which is itself a leak.
-	if (!post || (!post.published && !(actor && canMutate(actor, post.authorId)))) {
+	if (!post || (!post.published && !(ctx.actor && canMutate(ctx.actor, post.authorId)))) {
 		throw new AppError("NOT_FOUND", `No post with id ${id}`);
 	}
 
 	return post;
 }
 
-export async function createPost(db: Database, actor: Actor | null, input: unknown): Promise<Post> {
-	const current = requireActor(actor);
+export async function createPost(ctx: ServiceCtx, input: unknown): Promise<Post> {
+	const current = requireActor(ctx.actor);
 	const { title, body, published } = parseInput(CreatePostInput, input);
 
-	const [post] = await db
+	const [post] = await ctx.db
 		.insert(posts)
 		.values({
 			title,
@@ -115,16 +112,16 @@ async function loadMutable(db: Database, actor: Actor | null, id: string): Promi
 	return post;
 }
 
-export async function updatePost(db: Database, actor: Actor | null, input: unknown): Promise<Post> {
+export async function updatePost(ctx: ServiceCtx, input: unknown): Promise<Post> {
 	const { id, ...changes } = parseInput(UpdatePostInput, input);
 
-	await loadMutable(db, actor, id);
+	await loadMutable(ctx.db, ctx.actor, id);
 
 	if (Object.keys(changes).length === 0) {
 		throw new AppError("BAD_REQUEST", "Nothing to update");
 	}
 
-	const [post] = await db
+	const [post] = await ctx.db
 		.update(posts)
 		.set({ ...changes, updatedAt: new Date() })
 		.where(eq(posts.id, id))
@@ -137,16 +134,12 @@ export async function updatePost(db: Database, actor: Actor | null, input: unkno
 	return post;
 }
 
-export async function deletePost(
-	db: Database,
-	actor: Actor | null,
-	input: unknown,
-): Promise<{ id: string }> {
+export async function deletePost(ctx: ServiceCtx, input: unknown): Promise<{ id: string }> {
 	const { id } = parseInput(PostIdInput, input);
 
-	await loadMutable(db, actor, id);
+	await loadMutable(ctx.db, ctx.actor, id);
 
-	await db.delete(posts).where(eq(posts.id, id));
+	await ctx.db.delete(posts).where(eq(posts.id, id));
 
 	return { id };
 }

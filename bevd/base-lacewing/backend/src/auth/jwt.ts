@@ -1,7 +1,7 @@
 import { accessTokenProfile, importKey, JWTError, jwtVerify, newAccessToken } from "lacewing";
 import { env } from "../config/env";
 import type { UserRole } from "../db/schema";
-import { AppError } from "./errors";
+import { AppError } from "../lib/errors";
 
 /**
  * Access tokens through lacewing, which turns the checklist the old jose
@@ -9,20 +9,53 @@ import { AppError } from "./errors";
  * the algorithm allowlist, issuer and audience pinning, a `typ` of `at+jwt`
  * (RFC 9068) that a differently-purposed token can never satisfy, a unique
  * `jti` on every token, and an entropy check on the secret itself - a
- * human-chosen JWT_SECRET refuses to import, so the app fails at boot, not
- * at audit time.
+ * human-chosen JWT_SECRET refuses to import, so the app fails on the first
+ * token rather than at audit time.
  *
- * (Refresh tokens are deliberately not JWTs - see lib/tokens.ts.)
+ * (Refresh tokens are deliberately not JWTs - see tokens.ts.)
  */
-const secret = await importKey(env.JWT_SECRET, "HS256");
+interface Keys {
+	key: Awaited<ReturnType<typeof importKey>>;
+	profile: ReturnType<typeof accessTokenProfile>;
+}
 
-const profile = accessTokenProfile({
-	issuer: env.JWT_ISSUER,
-	audience: env.JWT_AUDIENCE,
-	algorithms: ["HS256"],
-	keys: secret,
-	maxTokenAge: env.JWT_ACCESS_EXPIRY,
-});
+let keys: Promise<Keys> | undefined;
+
+/**
+ * Imported on first use, not at import time.
+ *
+ * This file used to do a top-level `await importKey(env.JWT_SECRET, "HS256")`, which meant
+ * that merely *importing* a router - or anything that transitively reaches this file - ran
+ * key derivation and lacewing's entropy check. A weak secret failed at import, so a test
+ * that never signs a token still needed a real random one, and every importer paid for
+ * crypto it might not use.
+ *
+ * Deferring it moves that failure to the first sign or verify, which is where it belongs
+ * and where it is still impossible to miss. Caching the promise keeps the single-import
+ * guarantee: concurrent callers await the same one.
+ *
+ * Note what this does *not* defer: `env` itself is still validated when config/env.ts is
+ * imported, and deliberately so - a missing DATABASE_URL should stop the process at boot,
+ * not on the first query. Config is validated eagerly; key material is derived lazily.
+ */
+function load(): Promise<Keys> {
+	keys ??= (async () => {
+		const key = await importKey(env.JWT_SECRET, "HS256");
+
+		return {
+			key,
+			profile: accessTokenProfile({
+				issuer: env.JWT_ISSUER,
+				audience: env.JWT_AUDIENCE,
+				algorithms: ["HS256"],
+				keys: key,
+				maxTokenAge: env.JWT_ACCESS_EXPIRY,
+			}),
+		};
+	})();
+
+	return keys;
+}
 
 export interface AccessTokenPayload {
 	/** The user id. `sub` is the registered JWT claim for it. */
@@ -32,6 +65,8 @@ export interface AccessTokenPayload {
 }
 
 export async function signAccessToken(payload: AccessTokenPayload): Promise<string> {
+	const { key } = await load();
+
 	return newAccessToken()
 		.issuer(env.JWT_ISSUER)
 		.audience(env.JWT_AUDIENCE)
@@ -39,7 +74,7 @@ export async function signAccessToken(payload: AccessTokenPayload): Promise<stri
 		.claim("email", payload.email)
 		.claim("role", payload.role)
 		.expiresIn(env.JWT_ACCESS_EXPIRY)
-		.sign(secret);
+		.sign(key);
 }
 
 /**
@@ -51,6 +86,7 @@ export async function signAccessToken(payload: AccessTokenPayload): Promise<stri
  */
 export async function verifyAccessToken(token: string): Promise<AccessTokenPayload> {
 	try {
+		const { profile } = await load();
 		const { payload } = await jwtVerify(token, profile);
 
 		const { sub, email, role } = payload;

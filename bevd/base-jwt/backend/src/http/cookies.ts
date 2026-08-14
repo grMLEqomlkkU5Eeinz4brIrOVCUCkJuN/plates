@@ -5,6 +5,13 @@ export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 
 /**
+ * How a session travels over HTTP - and nothing else in the app knows.
+ *
+ * This lives under http/ rather than lib/ on purpose: it is transport, not policy. No
+ * service imports it, and none can, because a service is handed a ServiceCtx that has no
+ * Request and no Headers on it. Over gRPC the same session goes back as fields on the
+ * wire (see grpc/handlers/auth.ts) with none of this involved.
+ *
  * httpOnly is the whole point: JavaScript in the page cannot read these, so an XSS bug
  * cannot walk off with the session. It is also why the Vue app is never handed a token
  * to keep in localStorage - it holds nothing worth stealing.

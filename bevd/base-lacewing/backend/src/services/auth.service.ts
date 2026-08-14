@@ -1,14 +1,14 @@
 import { type } from "arktype";
 import { and, eq, isNull } from "drizzle-orm";
-import { env } from "../config/env";
+import { requireActor } from "../auth/actor";
+import { signAccessToken } from "../auth/jwt";
+import { hashPassword, verifyPassword } from "../auth/password";
+import { revokeSession } from "../auth/sessions";
+import { generateRefreshToken, hashRefreshToken, refreshTokenExpiresAt } from "../auth/tokens";
 import type { Database } from "../db";
 import { type PublicUser, refreshTokens, toPublicUser, users } from "../db/schema";
-import { type Actor, requireActor } from "../lib/actor";
 import { AppError, isUniqueViolation, parseInput } from "../lib/errors";
-import { signAccessToken } from "../lib/jwt";
-import type { Logger } from "../lib/logger";
-import { hashPassword, verifyPassword } from "../lib/password";
-import { generateRefreshToken, hashRefreshToken } from "../lib/tokens";
+import type { ServiceCtx } from "./context";
 
 export const RegisterInput = type({
 	email: "string.email",
@@ -33,8 +33,10 @@ export interface Session {
 /**
  * Issues an access token and records a fresh refresh token.
  *
- * Takes anything that can insert - the database itself, or a transaction - so `refresh`
- * can revoke the old token and mint the new one as a single atomic step.
+ * Takes anything that can insert - the database itself, or a transaction - rather than a
+ * ServiceCtx, so `refresh` can revoke the old token and mint the new one as a single
+ * atomic step. Private to this module, which is why it does not follow the (ctx, input)
+ * shape the exported entry points all share.
  */
 async function issueSession(tx: Pick<Database, "insert">, user: PublicUser): Promise<Session> {
 	const accessToken = await signAccessToken({
@@ -44,24 +46,23 @@ async function issueSession(tx: Pick<Database, "insert">, user: PublicUser): Pro
 	});
 
 	const refreshToken = generateRefreshToken();
-	const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 
 	await tx.insert(refreshTokens).values({
 		userId: user.id,
 		tokenHash: hashRefreshToken(refreshToken),
-		expiresAt,
+		expiresAt: refreshTokenExpiresAt(),
 	});
 
 	return { user, accessToken, refreshToken };
 }
 
-export async function register(db: Database, log: Logger, input: unknown): Promise<Session> {
+export async function register(ctx: ServiceCtx, input: unknown): Promise<Session> {
 	const { email, name, password } = parseInput(RegisterInput, input);
 
 	const normalisedEmail = email.toLowerCase();
 
 	try {
-		const [user] = await db
+		const [user] = await ctx.db
 			.insert(users)
 			.values({
 				email: normalisedEmail,
@@ -77,13 +78,13 @@ export async function register(db: Database, log: Logger, input: unknown): Promi
 			throw new AppError("INTERNAL", "Insert returned no row");
 		}
 
-		log.info({ event: "auth.register", userId: user.id }, "user registered");
+		ctx.log.info({ event: "auth.register", userId: user.id }, "user registered");
 
-		return await issueSession(db, toPublicUser(user));
+		return await issueSession(ctx.db, toPublicUser(user));
 	} catch (error) {
 		// The UNIQUE index on email is what decides this, not a lookup beforehand.
 		if (isUniqueViolation(error)) {
-			log.info({ event: "auth.register.duplicate" }, "registration rejected");
+			ctx.log.info({ event: "auth.register.duplicate" }, "registration rejected");
 
 			throw new AppError("CONFLICT", "That email is already registered");
 		}
@@ -92,10 +93,10 @@ export async function register(db: Database, log: Logger, input: unknown): Promi
 	}
 }
 
-export async function login(db: Database, log: Logger, input: unknown): Promise<Session> {
+export async function login(ctx: ServiceCtx, input: unknown): Promise<Session> {
 	const { email, password } = parseInput(LoginInput, input);
 
-	const user = await db.query.users.findFirst({
+	const user = await ctx.db.query.users.findFirst({
 		where: eq(users.email, email.toLowerCase()),
 	});
 
@@ -109,13 +110,13 @@ export async function login(db: Database, log: Logger, input: unknown): Promise<
 		// runs off-thread - with bcryptjs it would have been a free DoS lever.
 		await hashPassword(password);
 
-		log.info({ event: "auth.login.failed", reason: "unknown_email" }, "login rejected");
+		ctx.log.info({ event: "auth.login.failed", reason: "unknown_email" }, "login rejected");
 
 		throw invalid;
 	}
 
 	if (!(await verifyPassword(password, user.passwordHash))) {
-		log.info(
+		ctx.log.info(
 			{ event: "auth.login.failed", reason: "bad_password", userId: user.id },
 			"login rejected",
 		);
@@ -123,9 +124,9 @@ export async function login(db: Database, log: Logger, input: unknown): Promise<
 		throw invalid;
 	}
 
-	log.info({ event: "auth.login", userId: user.id, role: user.role }, "login ok");
+	ctx.log.info({ event: "auth.login", userId: user.id, role: user.role }, "login ok");
 
-	return issueSession(db, toPublicUser(user));
+	return issueSession(ctx.db, toPublicUser(user));
 }
 
 /**
@@ -136,25 +137,25 @@ export async function login(db: Database, log: Logger, input: unknown): Promise<
  * A stolen token is therefore good for one use at most. Whoever refreshes second is
  * rejected, which is the signal you would build reuse detection on (revoke the whole
  * family, force a re-login) if you need it.
+ *
+ * The token is an argument rather than part of the input schema: it arrives from a cookie
+ * over HTTP and from the request body over gRPC, and the service should not have to care
+ * which. Both transports pull it out and hand it over.
  */
-export async function refresh(
-	db: Database,
-	log: Logger,
-	token: string | undefined,
-): Promise<Session> {
+export async function refresh(ctx: ServiceCtx, token: string | undefined): Promise<Session> {
 	if (!token) {
 		throw new AppError("UNAUTHORIZED", "No refresh token");
 	}
 
 	const tokenHash = hashRefreshToken(token);
 
-	return db.transaction(async (tx) => {
+	return ctx.db.transaction(async (tx) => {
 		const stored = await tx.query.refreshTokens.findFirst({
 			where: and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.revokedAt)),
 		});
 
 		if (!stored || stored.expiresAt.getTime() < Date.now()) {
-			log.info({ event: "auth.refresh.rejected" }, "refresh rejected");
+			ctx.log.info({ event: "auth.refresh.rejected" }, "refresh rejected");
 
 			throw new AppError("UNAUTHORIZED", "Invalid or expired refresh token");
 		}
@@ -170,47 +171,27 @@ export async function refresh(
 			.set({ revokedAt: new Date() })
 			.where(eq(refreshTokens.id, stored.id));
 
-		log.info({ event: "auth.refresh", userId: user.id }, "session refreshed");
+		ctx.log.info({ event: "auth.refresh", userId: user.id }, "session refreshed");
 
 		return issueSession(tx, toPublicUser(user));
 	});
 }
 
 /** Revokes the one token. Logging out of this browser does not sign you out everywhere. */
-export async function logout(
-	db: Database,
-	log: Logger,
-	token: string | undefined,
-): Promise<{ ok: true }> {
+export async function logout(ctx: ServiceCtx, token: string | undefined): Promise<{ ok: true }> {
 	if (token) {
-		await db
-			.update(refreshTokens)
-			.set({ revokedAt: new Date() })
-			.where(
-				and(
-					eq(refreshTokens.tokenHash, hashRefreshToken(token)),
-					isNull(refreshTokens.revokedAt),
-				),
-			);
+		await revokeSession(ctx.db, hashRefreshToken(token));
 
-		log.info({ event: "auth.logout" }, "logged out");
+		ctx.log.info({ event: "auth.logout" }, "logged out");
 	}
 
 	return { ok: true };
 }
 
-/** Kills every session for a user. This is what "sign out everywhere" needs. */
-export async function revokeAllSessions(db: Database, userId: string): Promise<void> {
-	await db
-		.update(refreshTokens)
-		.set({ revokedAt: new Date() })
-		.where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
-}
+export async function me(ctx: ServiceCtx): Promise<PublicUser> {
+	const current = requireActor(ctx.actor);
 
-export async function me(db: Database, actor: Actor | null): Promise<PublicUser> {
-	const current = requireActor(actor);
-
-	const user = await db.query.users.findFirst({ where: eq(users.id, current.id) });
+	const user = await ctx.db.query.users.findFirst({ where: eq(users.id, current.id) });
 
 	if (!user) {
 		// The token is signed and unexpired, but the account is gone.

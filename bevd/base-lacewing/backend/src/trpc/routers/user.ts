@@ -13,15 +13,13 @@ import { adminProcedure, router } from "../trpc";
  */
 export const userRouter = router({
 	/** trpc.user.list.query() */
-	list: adminProcedure.query(({ ctx }) => listUsers(ctx.db, ctx.actor)),
+	list: adminProcedure.query(({ ctx }) => listUsers(ctx)),
 
 	/** trpc.user.setRole.mutate({ userId, role: "admin" }) */
 	setRole: adminProcedure
 		.input(SetRoleInput)
-		.mutation(({ ctx, input }) => setUserRole(ctx.db, ctx.log, ctx.actor, input)),
+		.mutation(({ ctx, input }) => setUserRole(ctx, input)),
 
 	/** trpc.user.delete.mutate({ userId }) */
-	delete: adminProcedure
-		.input(UserIdInput)
-		.mutation(({ ctx, input }) => deleteUser(ctx.db, ctx.log, ctx.actor, input)),
+	delete: adminProcedure.input(UserIdInput).mutation(({ ctx, input }) => deleteUser(ctx, input)),
 });

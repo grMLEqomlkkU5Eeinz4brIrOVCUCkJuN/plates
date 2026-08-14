@@ -12,9 +12,18 @@ base/
 │       ├── services/ the business logic. Everything else is transport.
 │       ├── trpc/     tRPC router (mounted on Elysia)
 │       ├── grpc/     gRPC server (its own port)
-│       └── db/       Drizzle schema + migrations
+│       ├── db/       Drizzle schema + migrations
+│       └── lib/      errors and logger. Cross-cutting only.
 └── frontend/         Vue 3 + Vite, calling tRPC with end-to-end types
+    └── src/
+        ├── composables/ everything that talks to the server
+        └── components/  markup and local form state
 ```
+
+Every service function takes the same two arguments - a `ServiceCtx` (the database and a
+logger; the auth templates add an actor) and its input. Both transports' context types are
+supersets of that, so a tRPC resolver hands itself straight in: `listPosts(ctx, input)`,
+with the Request and response headers invisible to the service on the other side.
 
 ## Run it
 

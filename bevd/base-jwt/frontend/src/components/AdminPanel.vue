@@ -1,52 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted } from "vue";
 import { useAuth } from "../composables/useAuth";
-import { trpc } from "../lib/trpc";
-
-type ManagedUser = Awaited<ReturnType<typeof trpc.user.list.query>>[number];
+import { useUsers } from "../composables/useUsers";
 
 const { user: currentUser } = useAuth();
-
-const users = ref<ManagedUser[]>([]);
-const error = ref<string | null>(null);
-const busy = ref(false);
-
-/**
- * Hiding this component from non-admins is a courtesy, not a control. Every procedure it
- * calls is an adminProcedure, and the service checks the role again underneath - so a
- * curious user poking at the console gets a 403, not a user list.
- */
-async function run(action: () => Promise<void>) {
-	busy.value = true;
-	error.value = null;
-
-	try {
-		await action();
-	} catch (cause) {
-		error.value = cause instanceof Error ? cause.message : "Something went wrong";
-	} finally {
-		busy.value = false;
-	}
-}
-
-const load = () =>
-	run(async () => {
-		users.value = await trpc.user.list.query();
-	});
-
-const setRole = (target: ManagedUser, role: "user" | "admin") =>
-	run(async () => {
-		const updated = await trpc.user.setRole.mutate({ userId: target.id, role });
-
-		users.value = users.value.map((u) => (u.id === updated.id ? updated : u));
-	});
-
-const remove = (target: ManagedUser) =>
-	run(async () => {
-		await trpc.user.delete.mutate({ userId: target.id });
-
-		users.value = users.value.filter((u) => u.id !== target.id);
-	});
+const { users, busy, error, load, setRole, remove } = useUsers();
 
 onMounted(load);
 </script>

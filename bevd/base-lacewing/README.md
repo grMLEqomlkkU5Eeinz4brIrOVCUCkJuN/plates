@@ -3,7 +3,7 @@
 [`bevd/base-jwt`](../base-jwt) - Bun + Elysia + Vue + Drizzle with JWT auth and roles -
 rebuilt on [lacewing](https://github.com/Smiduweorc/lacewing), plus **double-submit CSRF
 protection**. This template is a working demo of what lacewing buys a real full-stack
-app: the JWT lifecycle that `lib/jwt.ts` previously had to get right by hand is now
+app: the JWT lifecycle that `auth/jwt.ts` previously had to get right by hand is now
 enforced by the library, and the bits lacewing deliberately does not do (opaque refresh
 tokens, CSRF) show where it ends and your app begins.
 
@@ -30,10 +30,10 @@ bun run dev
 
 | Concern | Where | What you get |
 | --- | --- | --- |
-| One verify path | `lib/jwt.ts` | `jwtVerify(token, profile)` against an `accessTokenProfile`: `typ: at+jwt` (RFC 9068), pinned issuer + audience, HS256 allowlist, 1h lifetime cap, unique `jti` on every token. No decode-without-verify, no `alg: none`, no HMAC/RSA swap. |
-| Secret hygiene | `lib/jwt.ts` + boot | `importKey` entropy-checks `JWT_SECRET`. The old `dev-only-secret-...` value from `base-jwt` no longer boots - that is a feature, and the committed dev value is now real random bytes. |
-| Cookie transport | `lib/cookies.ts` | The token cookies come from `buildTokenCookie`, where `HttpOnly; Secure; SameSite` are facts, not options. `COOKIE_SECURE` is gone from the env - there is nothing to switch. |
-| Bearer transport | `trpc/context.ts`, `grpc/auth.ts` | `parseBearer`: strict RFC 6750, exactly one `Bearer <token>`, exact-case scheme, no query-string tokens - for curl, services, and gRPC metadata. |
+| One verify path | `auth/jwt.ts` | `jwtVerify(token, profile)` against an `accessTokenProfile`: `typ: at+jwt` (RFC 9068), pinned issuer + audience, HS256 allowlist, 1h lifetime cap, unique `jti` on every token. No decode-without-verify, no `alg: none`, no HMAC/RSA swap. |
+| Secret hygiene | `auth/jwt.ts` | `importKey` entropy-checks `JWT_SECRET`. The old `dev-only-secret-...` value from `base-jwt` is refused outright - that is a feature, and the committed dev value is now real random bytes. The key is imported on the first token operation rather than at import time, so a weak secret fails the first sign or verify, loudly, instead of making every module that transitively reaches this file demand an environment. |
+| Cookie transport | `http/cookies.ts` | The token cookies come from `buildTokenCookie`, where `HttpOnly; Secure; SameSite` are facts, not options. `COOKIE_SECURE` is gone from the env - there is nothing to switch. |
+| Bearer transport | `trpc/context.ts`, `grpc/metadata.ts` | `parseBearer`: strict RFC 6750, exactly one `Bearer <token>`, exact-case scheme, no query-string tokens - for curl, services, and gRPC metadata. |
 | Inspection, loudly | `trpc/routers/__tests__/auth.test.ts` | `unsafeDecode` returns an `UntrustedJwt` the type system refuses wherever a `VerifiedJwt` is required - good for tests and debugging, useless for auth logic. |
 
 **The refresh token is still opaque, on purpose.** `base-jwt`'s argument holds: a
@@ -48,7 +48,7 @@ database *is* the revocation store, and there is no reason to pretend otherwise.
 relaxes SameSite, adds a form post, or serves an attacker-controllable subdomain - so this
 template adds the second lock:
 
-- Every session mints a random token (`lib/csrf.ts`) into `csrf_token` - the **one
+- Every session mints a random token (`http/csrf.ts`) into `csrf_token` - the **one
   deliberately non-httpOnly cookie**, because the page has to read it.
 - The Vue tRPC client (`frontend/src/lib/trpc.ts`) reads that cookie and echoes it as
   `x-csrf-token` on every call.
@@ -72,7 +72,7 @@ over real HTTP: same session, same cookies, no header -> 403.
 ## Authorization
 
 Unchanged from `base-jwt`: `publicProcedure` / `protectedProcedure` / `adminProcedure` at
-the edge, with the real rules in the services (`lib/actor.ts`) because gRPC never passes
+the edge, with the real rules in the services (`auth/actor.ts`) because gRPC never passes
 through a tRPC procedure. Ownership, admin override, draft visibility, "someone else's
 draft is NOT_FOUND not FORBIDDEN", role changes revoking sessions, last-admin
 protection - see [`base-jwt`'s README](../base-jwt) for the full tour; it all applies

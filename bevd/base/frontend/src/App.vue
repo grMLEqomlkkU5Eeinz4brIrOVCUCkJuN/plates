@@ -1,19 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted } from "vue";
 import PostsPanel from "./components/PostsPanel.vue";
-import { trpc } from "./lib/trpc";
+import { useHealth } from "./composables/useHealth";
 
-const status = ref("checking...");
+const { status, check } = useHealth();
 
-onMounted(async () => {
-	try {
-		const { status: ok } = await trpc.health.ping.query();
-
-		status.value = ok;
-	} catch {
-		status.value = "unreachable - is the backend running?";
-	}
-});
+onMounted(check);
 </script>
 
 <template>

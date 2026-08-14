@@ -35,20 +35,39 @@ backend/
 ├── proto/          .proto definitions (gRPC)
 └── src/
     ├── services/   business logic. Everything else is transport.
+    │               context.ts defines the ServiceCtx every one of them takes.
     ├── trpc/       tRPC router, mounted on Elysia
-    ├── grpc/       gRPC server, its own port (HTTP/2)
+    ├── grpc/       gRPC server, its own port (HTTP/2). handlers/ mirror the
+    │               routers; wire.ts converts; unary.ts maps errors.
     ├── db/         Drizzle schema + migrations
-    ├── lib/        errors, logger (+ jwt, password, cookies, actor in the auth
-    │               templates; base-lacewing's jwt/cookies ride lacewing, + csrf)
+    ├── auth/       policy, guards, jwt, password, tokens, sessions
+    │               (auth templates only; base-lacewing's jwt rides lacewing)
+    ├── http/       cookies (+ csrf in base-lacewing) - transport, not policy
+    ├── lib/        errors and logger. Cross-cutting only.
     └── app.ts      Elysia: REST + tRPC + CORS + OpenAPI
 frontend/           Vue 3 + Vite, tRPC client typed from the router
+└── src/
+    ├── composables/ everything that talks to the server
+    ├── components/  markup and local form state
+    └── lib/trpc.ts  the client itself. Imported by composables only.
 ```
 
-The organising idea, in both templates: **services own the logic, transports only
-translate.** A service takes a database, an actor and an input, then returns a value or
-throws an `AppError`. tRPC turns that into an HTTP status; gRPC turns the same error into
-a gRPC status. One rule, one place, two APIs - which is what keeps the authorization
-checks in `base-jwt` honest across both.
+Three layers, and the direction of the arrows is the point: `services/` may import from
+`db/`, `auth/` and `lib/`, never from `trpc/`, `grpc/` or `http/`. Nothing enforces that
+but the shape of `ServiceCtx` - a service is handed a database, a logger and (with auth)
+an actor, so there is no Request in reach to be tempted by.
+
+The organising idea, in every template: **services own the logic, transports only
+translate.** Every service function has the same shape - `fn(ctx, input)` - and returns a
+value or throws an `AppError`. tRPC turns that into an HTTP status; gRPC turns the same
+error into a gRPC status. One rule, one place, two APIs - which is what keeps the
+authorization checks in `base-jwt` honest across both.
+
+The uniform signature is deliberate. Services that each took whichever of (db, log, actor)
+they happened to need would mean adding a logger to one of them is a signature change
+rippling through two transports and every test; with a `ServiceCtx` it is already there.
+Both transports' context types are supersets of it, so a resolver passes itself straight
+in - `listPosts(ctx, input)` - and the extra fields stay invisible to the service.
 
 | Tool | Choice |
 | --- | --- |

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 import { createDatabase } from "../db";
+import { logger } from "../lib/logger";
 import { createTestDatabase } from "../test/db";
 
 /**
@@ -10,7 +11,7 @@ describe("app", () => {
 	let app: ReturnType<typeof createApp>;
 
 	beforeEach(async () => {
-		app = createApp({ db: await createTestDatabase() });
+		app = createApp({ db: await createTestDatabase(), log: logger });
 	});
 
 	it("serves the REST health route", async () => {
@@ -75,7 +76,7 @@ describe("app", () => {
 		// procedure, which is exactly the case that used to hand the client the failing
 		// SQL, its parameters and a stack trace.
 		const { db } = createDatabase("postgres://nobody:hunter2@127.0.0.1:59999/nope");
-		const broken = createApp({ db });
+		const broken = createApp({ db, log: logger });
 
 		const response = await broken.handle(
 			new Request("http://localhost/trpc/post.create", {

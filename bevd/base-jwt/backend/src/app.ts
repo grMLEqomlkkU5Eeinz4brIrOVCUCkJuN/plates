@@ -4,15 +4,22 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
-import { logger, requestIdFrom } from "./lib/logger";
+import { type Logger, requestIdFrom } from "./lib/logger";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
+/**
+ * Both doors take the same two things - see createGrpcServer, which takes this same shape.
+ * The logger is injected rather than imported so a test can pass a silent one, and so
+ * neither transport quietly depends on a module-level singleton the way the database
+ * deliberately does not.
+ */
 export interface AppDeps {
 	db: Database;
+	log: Logger;
 }
 
-export function createApp({ db }: AppDeps) {
+export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
@@ -31,7 +38,7 @@ export function createApp({ db }: AppDeps) {
 			.onAfterResponse(({ request, set, requestId, startedAt, path }) => {
 				if (path.startsWith("/trpc")) return;
 
-				logger.info(
+				root.info(
 					{
 						requestId,
 						transport: "http",
@@ -44,7 +51,7 @@ export function createApp({ db }: AppDeps) {
 				);
 			})
 			.onError(({ code, error, path, requestId }) => {
-				logger.error({ requestId, code, path, err: error }, "unhandled request error");
+				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
 
 			// A plain Elysia REST route. Elysia and tRPC share the same server - use REST for
@@ -67,7 +74,7 @@ export function createApp({ db }: AppDeps) {
 			// therefore re-derived from the header, which is the one thing that does survive.
 			.mount("/trpc", (request: Request) => {
 				const requestId = requestIdFrom(request.headers.get("x-request-id"));
-				const log = logger.child({ requestId, transport: "trpc" });
+				const log = root.child({ requestId, transport: "trpc" });
 
 				return fetchRequestHandler({
 					endpoint: "",

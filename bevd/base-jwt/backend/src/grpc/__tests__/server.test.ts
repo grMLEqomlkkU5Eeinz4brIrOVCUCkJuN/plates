@@ -2,6 +2,7 @@ import * as grpc from "@grpc/grpc-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../../db";
 import type { PublicUser } from "../../db/schema";
+import { logger } from "../../lib/logger";
 import { accessTokenFor, seedUser } from "../../test/auth";
 import { createTestDatabase } from "../../test/db";
 import { PostServiceClient, UserServiceClient } from "../proto";
@@ -68,7 +69,7 @@ describe("grpc", () => {
 		bobToken = await accessTokenFor(bob);
 		adminToken = await accessTokenFor(admin);
 
-		server = createGrpcServer(db);
+		server = createGrpcServer({ db, log: logger });
 
 		const port = await startGrpcServer(server, 0);
 		const address = `127.0.0.1:${port}`;

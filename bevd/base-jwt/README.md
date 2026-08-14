@@ -59,7 +59,7 @@ adminProcedure      // role === "admin"
 ```
 
 But **the procedure wrapper is not the security boundary.** The rules live in the
-services (`lib/actor.ts`, `services/*.service.ts`), because gRPC never passes through a
+services (`auth/actor.ts`, `services/*.service.ts`), because gRPC never passes through a
 tRPC procedure. A guard bolted onto the router alone would leave the gRPC door wide open.
 The transports reject early for a clean error; the service is what makes the rule true.
 
@@ -128,7 +128,7 @@ tests use a real client with real signed tokens over a real port.
   template should not make for you.
 - **`Bun.password`.** It is the same argon2id, but it only exists under Bun, and Vitest
   runs its workers under Node - every test that imports it would break. `@node-rs/argon2`
-  (what `lib/password.ts` uses) produces the same kind of hash and runs under both.
+  (what `auth/password.ts` uses) produces the same kind of hash and runs under both.
 
 ## Environment
 

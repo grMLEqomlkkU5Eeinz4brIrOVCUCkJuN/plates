@@ -1,94 +1,46 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useAuth } from "../composables/useAuth";
-import { trpc } from "../lib/trpc";
+import { usePosts } from "../composables/usePosts";
 
-// No hand-written Post interface: the type comes back from the router.
-type Post = Awaited<ReturnType<typeof trpc.post.list.query>>[number];
-
+/**
+ * Markup, and the two fields the form owns. Everything that talks to the server lives in
+ * usePosts - including `canEdit`, which is the server's own rule imported rather than a
+ * second copy of it.
+ */
 const { user } = useAuth();
+const { posts, busy, error, canEdit, load, create, togglePublished, remove } = usePosts();
 
-const posts = ref<Post[]>([]);
 const title = ref("");
 const body = ref("");
-const error = ref<string | null>(null);
-const loading = ref(false);
 
 const signedIn = computed(() => user.value !== null);
 
-/**
- * The same rule the server enforces in post.service.ts: your own, or you are an admin.
- *
- * This only decides which buttons to draw. The server does not trust it - deleting
- * someone else's post from the console still comes back FORBIDDEN.
- */
-function canEdit(post: Post): boolean {
-	const current = user.value;
-
-	if (!current) return false;
-
-	return current.role === "admin" || current.id === post.authorId;
-}
-
-async function run(action: () => Promise<void>) {
-	loading.value = true;
-	error.value = null;
-
-	try {
-		await action();
-	} catch (cause) {
-		error.value = cause instanceof Error ? cause.message : "Something went wrong";
-	} finally {
-		loading.value = false;
-	}
-}
-
-// Anonymous callers get published posts; signed-in ones also see their own drafts.
-// Reloading after sign-in is what makes those drafts appear.
-const load = () =>
-	run(async () => {
-		posts.value = await trpc.post.list.query({ limit: 20 });
-	});
-
-const create = () =>
-	run(async () => {
-		const post = await trpc.post.create.mutate({ title: title.value, body: body.value });
-
-		posts.value = [post, ...posts.value];
+async function submit() {
+	// Only clear the composer if the post actually landed - otherwise a failed create
+	// throws away what the user typed.
+	if (await create(title.value, body.value)) {
 		title.value = "";
 		body.value = "";
-	});
-
-const togglePublished = (post: Post) =>
-	run(async () => {
-		const updated = await trpc.post.update.mutate({ id: post.id, published: !post.published });
-
-		posts.value = posts.value.map((p) => (p.id === updated.id ? updated : p));
-	});
-
-const remove = (post: Post) =>
-	run(async () => {
-		await trpc.post.delete.mutate({ id: post.id });
-
-		posts.value = posts.value.filter((p) => p.id !== post.id);
-	});
+	}
+}
 
 onMounted(load);
 </script>
 
 <template>
 	<section class="panel">
-		<form v-if="signedIn" class="composer" @submit.prevent="create">
+		<form v-if="signedIn" class="composer" @submit.prevent="submit">
 			<input v-model="title" placeholder="Title" required maxlength="200" />
 			<textarea v-model="body" placeholder="Body" required rows="3" />
-			<button type="submit" :disabled="loading">Create post</button>
+			<button type="submit" :disabled="busy">Create post</button>
 		</form>
 
 		<p v-else class="hint">Sign in to write a post. Drafts are visible only to you.</p>
 
 		<p v-if="error" class="error" role="alert">{{ error }}</p>
 
-		<p v-if="!posts.length && !loading" class="empty">
+		<p v-if="!posts.length && !busy" class="empty">
 			No posts yet. Run <code>bun run db:seed</code>, or write one.
 		</p>
 
@@ -103,10 +55,10 @@ onMounted(load);
 				</div>
 
 				<div v-if="canEdit(post)" class="actions">
-					<button type="button" :disabled="loading" @click="togglePublished(post)">
+					<button type="button" :disabled="busy" @click="togglePublished(post)">
 						{{ post.published ? "Unpublish" : "Publish" }}
 					</button>
-					<button type="button" :disabled="loading" @click="remove(post)">Delete</button>
+					<button type="button" :disabled="busy" @click="remove(post)">Delete</button>
 				</div>
 			</li>
 		</ul>

@@ -6,9 +6,11 @@ import { logger } from "./lib/logger";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 
-// HTTP (Elysia: REST + tRPC) and gRPC are two doors into the same services.
-const app = createApp({ db });
-const grpcServer = createGrpcServer(db);
+// HTTP (Elysia: REST + tRPC) and gRPC are two doors into the same services. This is the
+// composition root: the only place that reads config, builds the database and the logger,
+// and hands both to whatever needs them. Everything below it is given its dependencies.
+const app = createApp({ db, log: logger });
+const grpcServer = createGrpcServer({ db, log: logger });
 
 app.listen(env.PORT, (server) => {
 	logger.info(

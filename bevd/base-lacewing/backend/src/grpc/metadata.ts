@@ -1,7 +1,7 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { parseBearer } from "lacewing";
-import type { Actor } from "../lib/actor";
-import { verifyAccessToken } from "../lib/jwt";
+import { verifyAccessToken } from "../auth/jwt";
+import type { Actor } from "../auth/policy";
 
 /**
  * The gRPC counterpart of the cookie read in trpc/context.ts.

@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { csrfTokensMatch } from "../lib/csrf";
+import { csrfTokensMatch } from "../http/csrf";
 import { AppError, type ErrorCode } from "../lib/errors";
 import type { Context } from "./context";
 
@@ -123,7 +123,7 @@ export const protectedProcedure = publicProcedure.use(({ ctx, next }) => {
  * Requires the admin role.
  *
  * This is a fast rejection at the edge, not the security boundary - the services enforce
- * the same rule (see lib/actor.ts), because a gRPC call never passes through here.
+ * the same rule (see auth/actor.ts), because a gRPC call never passes through here.
  */
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 	if (ctx.actor.role !== "admin") {
