@@ -68,7 +68,7 @@ build config; `npm run typecheck`, ESLint and Jest use the full one.
 ### Other things worth knowing
 
 - **`@tsconfig/node24` must be a real devDependency.** If TypeScript can't
-  resolve an `extends` target it does not error — it silently falls back to
+  resolve an `extends` target it does not error, it silently falls back to
   compiler defaults (no `esModuleInterop`, `target: es5`) and buries you in
   unrelated type errors. Keep its major in step with `.nvmrc`.
 - **TypeScript stays on 5.x.** `ts-jest` declares `typescript >=4.3 <7`, so
