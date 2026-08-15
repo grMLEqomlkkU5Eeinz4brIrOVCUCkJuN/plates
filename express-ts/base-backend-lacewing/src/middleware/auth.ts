@@ -13,6 +13,7 @@ import {
 	type JwtPayLoad,
 } from "lacewing";
 import { env } from "../config/env";
+import { durationToSeconds } from "../utils/helpers";
 import { authKit, REFRESH_AUDIENCE } from "../config/lacewing";
 import { createError } from "./errorHandler";
 
@@ -20,8 +21,12 @@ export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 export const REFRESH_PATH = "/api/v1/auth/refresh";
 
-const ACCESS_MAX_AGE = 15 * 60; // seconds; keep in step with JWT_ACCESS_EXPIRY
-const REFRESH_MAX_AGE = 7 * 24 * 60 * 60; // seconds; keep in step with JWT_REFRESH_EXPIRY
+// Derived from the token lifetimes rather than restated, so the cookie cannot
+// outlive the token it carries - or, worse, be discarded while the token is
+// still valid, which is what a hand-synced literal does the first time somebody
+// changes JWT_ACCESS_EXPIRY and not this line.
+const ACCESS_MAX_AGE = durationToSeconds(env.JWT_ACCESS_EXPIRY);
+const REFRESH_MAX_AGE = durationToSeconds(env.JWT_REFRESH_EXPIRY);
 
 // lacewing spells SameSite the way the header does.
 const SAME_SITE = env.COOKIE_SAME_SITE === "strict" ? "Strict" : "Lax";

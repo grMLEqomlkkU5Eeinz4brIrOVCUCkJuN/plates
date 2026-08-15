@@ -518,3 +518,10 @@ import logger from "../utils/logger";
 logger.info("Server started", { port: 3000 });
 logger.error("Failed to connect", { error: err.message });
 ```
+
+## Before production
+
+[`../PRODUCTION.md`](../PRODUCTION.md) is the list of what these templates deliberately do
+not do - rate limiting, TLS, a real datastore, a shared revocation store - which of those
+your platform probably handles for you, and a short list of things that are simply bugs.
+Read it before the first deploy, not after.

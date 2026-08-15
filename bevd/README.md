@@ -11,8 +11,9 @@ in how much auth they carry.
 
 `base-jwt` **is** `base` with authentication layered on, and `base-lacewing` **is**
 `base-jwt` with the hand-rolled JWT plumbing replaced by lacewing plus a CSRF layer.
-Start from `base` if you are not sure; adding auth later means copying the `lib/`,
-`services/auth.service.ts` and `trpc/trpc.ts` pieces across, not restructuring anything.
+Start from `base` if you are not sure; adding auth later means copying the `auth/`,
+`http/`, `services/auth.service.ts` and `trpc/trpc.ts` pieces across, not restructuring
+anything. `ServiceCtx` gains an `actor` field and nothing else moves.
 
 All ship the same three ways in - **REST**, **tRPC** and **gRPC** - over one set of
 services, plus a Vue 3 frontend that talks tRPC with end-to-end type inference.
@@ -30,7 +31,7 @@ Swap `base` for `base-jwt` if you want auth. Then follow that template's README.
 
 ## What is in the box
 
-```
+```text
 backend/
 ├── proto/          .proto definitions (gRPC)
 └── src/
@@ -77,6 +78,12 @@ in - `listPosts(ctx, input)` - and the extra fields stay invisible to the servic
 | Validation | arktype - one schema serves tRPC's input parser *and* the service |
 | Lint + format | Biome (`biome.jsonc`) |
 | Tests | Vitest, against PGlite - a real Postgres, in-process, no Docker |
+
+## Before production
+
+[`PRODUCTION.md`](./PRODUCTION.md) is the list of what these templates deliberately do not
+do - rate limiting, TLS, metrics, refresh token reuse detection - and which of those your
+platform probably already handles for you. Read it before the first deploy, not after.
 
 ## Notes
 

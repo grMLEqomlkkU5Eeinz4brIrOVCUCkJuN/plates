@@ -1,4 +1,5 @@
 import { parseCookie, stringifySetCookie } from "cookie";
+import { accessTokenTtlSeconds } from "../auth/tokens";
 import { env } from "../config/env";
 
 export const ACCESS_COOKIE = "access_token";
@@ -38,7 +39,7 @@ export function sessionCookies(accessToken: string, refreshToken: string): strin
 			...attributes,
 			name: ACCESS_COOKIE,
 			value: accessToken,
-			maxAge: 15 * 60,
+			maxAge: accessTokenTtlSeconds(),
 		}),
 		stringifySetCookie({
 			...attributes,

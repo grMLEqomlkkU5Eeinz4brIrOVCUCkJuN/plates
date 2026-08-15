@@ -24,7 +24,6 @@ describe("User Model", () => {
 				name: "Test User",
 			});
 
-			
 			const updated = updateUser(user, { email: "new@example.com" });
 
 			expect(updated.email).toBe("new@example.com");

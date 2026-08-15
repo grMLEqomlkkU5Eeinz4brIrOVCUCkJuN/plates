@@ -28,3 +28,39 @@ export function hashRefreshToken(token: string): string {
 export function refreshTokenExpiresAt(now = Date.now()): Date {
 	return new Date(now + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 }
+
+/**
+ * How long a freshly issued access token is good for, in seconds.
+ *
+ * The cookie's Max-Age is derived from this rather than restating it, so the browser
+ * cannot throw the cookie away while the token inside it is still valid - which is what a
+ * hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY and not the
+ * cookie. Same reasoning as refreshTokenExpiresAt above: lifetimes are configuration, and
+ * reading configuration belongs here rather than in the transport.
+ */
+export function accessTokenTtlSeconds(): number {
+	const match = /^(\d+)\s*(ms|s|m|h|d|w)?$/.exec(env.JWT_ACCESS_EXPIRY.trim());
+
+	if (!match?.[1]) {
+		throw new Error(
+			`Unsupported JWT_ACCESS_EXPIRY "${env.JWT_ACCESS_EXPIRY}" - use seconds, or a value like 15m or 1h`,
+		);
+	}
+
+	const amount = Number(match[1]);
+
+	switch (match[2]) {
+		case "ms":
+			return Math.floor(amount / 1000);
+		case "m":
+			return amount * 60;
+		case "h":
+			return amount * 3600;
+		case "d":
+			return amount * 86400;
+		case "w":
+			return amount * 604800;
+		default:
+			return amount;
+	}
+}

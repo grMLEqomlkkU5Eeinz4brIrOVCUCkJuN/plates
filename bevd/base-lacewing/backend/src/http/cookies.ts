@@ -1,5 +1,6 @@
 import { stringifySetCookie } from "cookie";
 import { buildTokenCookie, clearTokenCookie } from "lacewing";
+import { accessTokenTtlSeconds } from "../auth/tokens";
 import { env } from "../config/env";
 
 export const ACCESS_COOKIE = "access_token";
@@ -28,7 +29,7 @@ export function sessionCookies(
 		buildTokenCookie(accessToken, {
 			name: ACCESS_COOKIE,
 			sameSite: SAME_SITE,
-			maxAgeSeconds: 15 * 60,
+			maxAgeSeconds: accessTokenTtlSeconds(),
 		}),
 		buildTokenCookie(refreshToken, {
 			name: REFRESH_COOKIE,

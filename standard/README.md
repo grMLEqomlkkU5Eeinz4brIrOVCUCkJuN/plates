@@ -1,7 +1,7 @@
 # standard
 
 The canonical config every template in this repo starts from. When you scaffold a
-new template, copy these files in rather than reinventing them — that way a fix
+new template, copy these files in rather than reinventing them, that way a fix
 made once lands everywhere.
 
 ## What's here
@@ -12,7 +12,7 @@ made once lands everywhere.
 | `.prettierrc`              | Formatting. Tabs, double quotes, semicolons, LF.                                               |
 | `.prettierignore`          | Keeps Prettier off build output and lockfiles.                                                 |
 | `eslint.config.mjs`        | Flat ESLint config: `js` + `typescript-eslint` recommended, type-aware, Prettier-compatible.   |
-| `tsconfig.json`            | The **whole** project — `src` plus tests. Used by your editor, ESLint and ts-jest.             |
+| `tsconfig.json`            | The **whole** project `src` plus tests. Used by your editor, ESLint and ts-jest.             |
 | `tsconfig.build.json`      | What actually ships. Extends the above, excludes tests, emits to `dist/`.                      |
 | `.nvmrc`                   | Pins Node 24. CI reads this so the version lives in one place.                                 |
 | `.gitignore`               | Node/TypeScript ignores. Commits `.env.example`, ignores every other `.env`.                   |
@@ -84,5 +84,4 @@ build config; `npm run typecheck`, ESLint and Jest use the full one.
   spec forbids tabs. `.editorconfig` and Prettier both already know this.
 - **`prepare` runs `lefthook install`, which writes to the nearest `.git`.** When a
   template is its own repo that is exactly right. Running `npm install` on a
-  template *inside* this monorepo instead installs hooks into `plates/.git/hooks`
-  — harmless, but delete them if they show up.
+  template *inside* this monorepo instead installs hooks into `plates/.git/hooks`, harmless, but delete them if they show up.

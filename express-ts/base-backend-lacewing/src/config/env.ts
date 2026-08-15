@@ -29,9 +29,12 @@ const envSchema = z.object({
 		.string()
 		.default("GET,POST,PUT,PATCH,DELETE,OPTIONS")
 		.transform(stringToArray),
+	// Defaults to false so that it does not contradict the CORS_ORIGIN default
+	// above. Turn it on and you must name an origin - see the refine at the
+	// bottom of this file. .env.example does exactly that.
 	CORS_CREDENTIALS: z
 		.enum(["true", "false"])
-		.default("true")
+		.default("false")
 		.transform((val) => val === "true"),
 
 	// Security configuration
@@ -69,17 +72,38 @@ const envSchema = z.object({
 		.min(32, "CSRF_SECRET must be at least 32 characters"),
 });
 
+/**
+ * A wildcard origin and credentialed requests are mutually exclusive: a browser
+ * refuses a credentialed response carrying `Access-Control-Allow-Origin: *`, so
+ * the combination cannot work - it can only fail later, at the point a real user
+ * tries to log in. Fail here instead, where the message says why.
+ */
+const configSchema = envSchema.refine(
+	(cfg) => !(cfg.CORS_ORIGIN === "*" && cfg.CORS_CREDENTIALS),
+	{
+		message:
+			"CORS_ORIGIN=* cannot be combined with CORS_CREDENTIALS=true - browsers reject credentialed requests against a wildcard origin. Name the origins you serve.",
+	}
+);
+
 export type Env = z.infer<typeof envSchema>;
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
+	const { fieldErrors, formErrors } = z.flattenError(parsed.error);
+
 	// The logger depends on env, so it does not exist yet at this point.
 	// eslint-disable-next-line no-console
-	console.error(
-		"Invalid environment variables:",
-		z.flattenError(parsed.error).fieldErrors
-	);
+	console.error("Invalid environment variables:", fieldErrors);
+
+	// Cross-field problems (the CORS pair above) land in formErrors, not
+	// fieldErrors - printing only the latter would report nothing at all.
+	if (formErrors.length > 0) {
+		// eslint-disable-next-line no-console
+		console.error(formErrors.join("\n"));
+	}
+
 	process.exit(1);
 }
 

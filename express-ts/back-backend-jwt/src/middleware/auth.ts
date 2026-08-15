@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
+import { durationToSeconds } from "../utils/helpers";
 import { createError } from "./errorHandler";
 
 export interface JwtPayload {
@@ -39,6 +40,14 @@ export const setAuthCookies = (
 	accessToken: string,
 	refreshToken: string
 ): void => {
+	// Derived from the token lifetimes rather than restated, so a cookie cannot be
+	// discarded while the token it carries is still valid - which is what a
+	// hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY and
+	// not this line. res.cookie wants milliseconds; the tokens are configured in
+	// duration strings.
+	const ACCESS_MAX_AGE_MS = durationToSeconds(env.JWT_ACCESS_EXPIRY) * 1000;
+	const REFRESH_MAX_AGE_MS = durationToSeconds(env.JWT_REFRESH_EXPIRY) * 1000;
+
 	const cookieOptions = {
 		httpOnly: true,
 		secure: env.COOKIE_SECURE,
@@ -47,12 +56,12 @@ export const setAuthCookies = (
 
 	res.cookie("access_token", accessToken, {
 		...cookieOptions,
-		maxAge: 15 * 60 * 1000, // 15 minutes
+		maxAge: ACCESS_MAX_AGE_MS,
 	});
 
 	res.cookie("refresh_token", refreshToken, {
 		...cookieOptions,
-		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+		maxAge: REFRESH_MAX_AGE_MS,
 		path: "/api/v1/auth/refresh",
 	});
 };
