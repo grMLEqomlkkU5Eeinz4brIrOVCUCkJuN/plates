@@ -17,6 +17,11 @@ export const CSRF_COOKIE = "csrf_token";
  *
  * Browsers treat http://localhost as a secure context, so Secure cookies
  * work unchanged in dev.
+ *
+ * COOKIE_DOMAIN is host-only when unset, and config/env.ts says when to set it.
+ * The clear path passes the same value: a cookie is identified by name, domain
+ * and path together, so a logout that omits the domain expires a cookie the
+ * browser does not have.
  */
 const SAME_SITE = env.COOKIE_SAME_SITE === "strict" ? "Strict" : "Lax";
 
@@ -29,11 +34,13 @@ export function sessionCookies(
 		buildTokenCookie(accessToken, {
 			name: ACCESS_COOKIE,
 			sameSite: SAME_SITE,
+			domain: env.COOKIE_DOMAIN,
 			maxAgeSeconds: accessTokenTtlSeconds(),
 		}),
 		buildTokenCookie(refreshToken, {
 			name: REFRESH_COOKIE,
 			sameSite: SAME_SITE,
+			domain: env.COOKIE_DOMAIN,
 			maxAgeSeconds: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
 		}),
 		// The CSRF cookie is the one cookie that must NOT be httpOnly - its whole
@@ -47,6 +54,7 @@ export function sessionCookies(
 			secure: true,
 			sameSite: env.COOKIE_SAME_SITE,
 			path: "/",
+			domain: env.COOKIE_DOMAIN,
 			maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
 		}),
 	];
@@ -55,8 +63,8 @@ export function sessionCookies(
 /** Max-Age=0 tells the browser to drop them now, rather than trusting it to forget. */
 export function clearedCookies(): string[] {
 	const headers = new Headers();
-	clearTokenCookie(headers, { name: ACCESS_COOKIE });
-	clearTokenCookie(headers, { name: REFRESH_COOKIE });
+	clearTokenCookie(headers, { name: ACCESS_COOKIE, domain: env.COOKIE_DOMAIN });
+	clearTokenCookie(headers, { name: REFRESH_COOKIE, domain: env.COOKIE_DOMAIN });
 
 	return [
 		...headers.getSetCookie(),
@@ -67,6 +75,7 @@ export function clearedCookies(): string[] {
 			secure: true,
 			sameSite: env.COOKIE_SAME_SITE,
 			path: "/",
+			domain: env.COOKIE_DOMAIN,
 			maxAge: 0,
 		}),
 	];

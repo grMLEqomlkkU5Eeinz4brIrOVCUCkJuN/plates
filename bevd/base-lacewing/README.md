@@ -130,3 +130,10 @@ Beyond the base template's variables:
 | `JWT_ISSUER` / `JWT_AUDIENCE` | Pinned into and checked against every token. |
 | `REFRESH_TOKEN_TTL_DAYS` | Default `7`. Revocable, so it can be generous. |
 | `COOKIE_SAME_SITE` | `lax` or `strict`. `none` is not an option, and `COOKIE_SECURE` no longer exists - every cookie is Secure, and `http://localhost` counts as a secure context. |
+| `COOKIE_DOMAIN` | Unset leaves every cookie host-only. Set the shared parent (`example.com`) once the Vue app and the API sit on different hosts: `csrf_token` is readable by script so the page can echo it back as a header, and script on `app.example.com` cannot read a cookie `api.example.com` scoped to itself, so every mutation comes back a CSRF failure. A `Domain` cookie goes to every subdomain underneath, and `csrf_token` is the one a neighbour can read as well. |
+
+`COOKIE_DOMAIN` only reaches hosts under one registrable domain. Serving the Vue app from a
+different domain than the API would need `SameSite=None`, which this template does not
+accept: a cross-site token cookie is what CSRF exploits. Put both behind one origin instead,
+with a reverse proxy mounting `/trpc` under the app's domain. `config/env.ts` says so if you
+try `COOKIE_SAME_SITE=none`.

@@ -24,7 +24,13 @@ Express 5 + TypeScript, Zod validation, Winston logging, Swagger docs, Jest test
 CSRF protection is the signed double-submit pattern (`csrf-csrf`), bound to the access
 token as the session identifier - login and refresh both rotate the CSRF token along with
 the session and return the new one in the response body. State-changing routes require the
-`x-csrf-token` header.
+`x-csrf-token` header. A client that caches the token from login gets 403s from the first
+refresh onward, at `JWT_ACCESS_EXPIRY` old, so read it from each response.
+
+A second cookie of the same name is refused rather than resolved. Any host under
+`COOKIE_DOMAIN` can set `access_token`, browsers send both copies, and nothing says which
+wins, so an ambiguous name is a 401 that says `Ambiguous access token cookie`, which
+separates it in the log from an ordinary logged-out request.
 
 The auth tests (`src/routes/api/v1/__tests__/auth.routes.test.ts`) exercise each of these
 guarantees against the live app - tampered tokens, replayed refresh tokens, token
@@ -139,12 +145,31 @@ await request(app).get("/api/v1/products").set(asUser(session));
 | `JWT_REFRESH_EXPIRY` | `7d`                           | Refresh token lifetime                                                     |
 | `COOKIE_SECRET`      | (required)                     | Secret for signed cookies (min 32 chars)                                   |
 | `COOKIE_SAME_SITE`   | `strict`                       | `strict` or `lax`. `none` is not accepted - that is how CSRF happens.      |
+| `COOKIE_DOMAIN`      | (unset)                        | Parent domain for the auth and CSRF cookies. Unset leaves them host-only. |
 | `CSRF_SECRET`        | (required)                     | Secret for CSRF token HMAC (min 32 chars)                                  |
 
 There is deliberately no `COOKIE_SECURE`: every cookie is `HttpOnly; Secure`,
 unconditionally. Browsers treat `http://localhost` as a secure context, so development
 works unchanged; anything non-local has to be HTTPS, which is the correct constraint to
 be stuck with.
+
+Unset, `COOKIE_DOMAIN` leaves every cookie host-only: only the host that set it gets it
+back, which is right on localhost and behind a single hostname. Set the shared parent once
+the browser has to reach more than one of your hosts, say a session minted by
+`auth.example.com` that `api.example.com` verifies, or a page on `app.example.com` calling
+this API. CSRF breaks first: `middleware/csrf.ts` HMACs each token against the
+access-token cookie, so where the CSRF cookie does not reach, valid requests fail the
+check with a 403. A `Domain` cookie also reaches every subdomain underneath, so name the
+narrowest parent that covers your hosts. It rules out the `__Host-` prefix, which means
+host-only by definition.
+
+`COOKIE_DOMAIN` only reaches hosts under one registrable domain. A frontend on a different
+domain would need `SameSite=None`, which this template does not accept, because a
+cross-site token cookie is what CSRF exploits. Two ways round it: put both behind one
+origin, with a reverse proxy mounting this API under a path on the frontend's domain, or
+drop cookies for that client and send the access token as `Authorization: Bearer` -
+`authenticate()` already accepts it, and a request with no cookie has no CSRF problem to
+solve. `config/env.ts` prints the same two options if you try `COOKIE_SAME_SITE=none`.
 
 ## Available Scripts
 

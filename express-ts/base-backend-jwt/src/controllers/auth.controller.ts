@@ -7,7 +7,7 @@ import {
 	setAuthCookies,
 	clearAuthCookies,
 } from "../middleware/auth";
-import { generateToken } from "../middleware/csrf";
+import { clearCsrfCookie, generateToken } from "../middleware/csrf";
 import { createError } from "../middleware/errorHandler";
 
 export const loginSchema = z.object({
@@ -47,6 +47,7 @@ export const login = (req: Request, res: Response): void => {
 
 export const logout = (_req: Request, res: Response): void => {
 	clearAuthCookies(res);
+	clearCsrfCookie(res);
 
 	res.json({
 		success: true,

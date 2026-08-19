@@ -90,6 +90,17 @@ Short section, quick decisions, but make them deliberately.
 - [ ] **`CORS_ORIGIN` takes a single origin.** If you serve more than one frontend, that
       needs to become a list, and `credentials: true` means you cannot get lazy and use
       `*`.
+- [ ] **Set `COOKIE_DOMAIN` if the app and the API do not share a hostname.** Unset, every
+      cookie is host-only: only the host that set it gets it back, which is correct on
+      localhost and behind one hostname. Put the Vue app on `app.example.com` and the API
+      on `api.example.com` and the session cookies land on a host the page is not on. In
+      `base-lacewing` the `csrf_token` cookie the page reads and echoes back as a header is
+      not visible to it either, so every mutation comes back a CSRF failure and no part of
+      the error mentions cookies. `COOKIE_DOMAIN=example.com` scopes them to the shared
+      parent, at the price of reaching every subdomain underneath, including any you do not
+      operate, `csrf_token` included. It only reaches hosts under one registrable domain;
+      serving the app from a different domain means putting both behind one origin, because
+      `SameSite=None` is not on offer here.
 
 ## Watch these as the code grows
 

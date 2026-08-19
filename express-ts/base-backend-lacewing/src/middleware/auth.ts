@@ -111,6 +111,11 @@ export const revokeToken = async (
  * buildTokenCookie always emits HttpOnly; Secure; SameSite - there is no
  * option to weaken that, which is why this template has no COOKIE_SECURE
  * switch. Browsers treat http://localhost as a secure context, so dev works.
+ *
+ * COOKIE_DOMAIN is host-only when unset, and config/env.ts says when to set it.
+ * clearAuthCookies passes the same value: a cookie is identified by name,
+ * domain and path together, so a clear that omits the domain expires a cookie
+ * the browser does not have and leaves the session where it was.
  */
 export const setAuthCookies = (
 	res: Response,
@@ -122,6 +127,7 @@ export const setAuthCookies = (
 		buildTokenCookie(accessToken, {
 			name: ACCESS_COOKIE,
 			sameSite: SAME_SITE,
+			domain: env.COOKIE_DOMAIN,
 			maxAgeSeconds: ACCESS_MAX_AGE,
 		})
 	);
@@ -130,6 +136,7 @@ export const setAuthCookies = (
 		buildTokenCookie(refreshToken, {
 			name: REFRESH_COOKIE,
 			sameSite: SAME_SITE,
+			domain: env.COOKIE_DOMAIN,
 			maxAgeSeconds: REFRESH_MAX_AGE,
 			// Only ever sent to the refresh endpoint.
 			path: REFRESH_PATH,
@@ -141,8 +148,15 @@ export const clearAuthCookies = (res: Response): void => {
 	// lacewing's cookie helpers write to a WHATWG Headers object; Express
 	// does not expose one, so collect and copy.
 	const headers = new Headers();
-	clearTokenCookie(headers, { name: ACCESS_COOKIE });
-	clearTokenCookie(headers, { name: REFRESH_COOKIE, path: REFRESH_PATH });
+	clearTokenCookie(headers, {
+		name: ACCESS_COOKIE,
+		domain: env.COOKIE_DOMAIN,
+	});
+	clearTokenCookie(headers, {
+		name: REFRESH_COOKIE,
+		path: REFRESH_PATH,
+		domain: env.COOKIE_DOMAIN,
+	});
 	for (const cookie of headers.getSetCookie()) {
 		res.append("Set-Cookie", cookie);
 	}
@@ -156,8 +170,28 @@ export const clearAuthCookies = (res: Response): void => {
 const extractAccessToken = (req: Request): string | undefined => {
 	const fromCookie = readTokenCookie(req.headers.cookie, ACCESS_COOKIE);
 	if (fromCookie) return fromCookie;
-	if (!req.headers.authorization) return undefined;
-	return parseBearer(req.headers.authorization);
+	if (req.headers.authorization)
+		return parseBearer(req.headers.authorization);
+
+	// readTokenCookie hands back undefined for a name that arrived twice: nothing
+	// settles which copy wins, so it refuses to guess rather than return one an
+	// attacker on a sibling subdomain may have planted. Still a 401, with a
+	// message that tells the two apart in the log, because "nobody is logged in"
+	// and "somebody is writing cookies on our domain" want different responses.
+	if (countCookie(req.headers.cookie, ACCESS_COOKIE) > 1) {
+		throw createError(401, "Ambiguous access token cookie");
+	}
+
+	return undefined;
+};
+
+const countCookie = (header: string | undefined, name: string): number => {
+	if (!header) return 0;
+
+	return header
+		.split(";")
+		.filter((pair) => pair.slice(0, pair.indexOf("=")).trim() === name)
+		.length;
 };
 
 export const authenticate = async (

@@ -83,6 +83,18 @@ No gateway knows what a `jti` is.
       timestamp without touching anything, so it is a liveness probe. Point readiness at
       something that actually checks a dependency once you have one, or you will get pods
       reporting healthy while every request fails.
+- [ ] **Set `COOKIE_DOMAIN` if more than one of your hosts has to see the session.**
+      Unset, the auth and CSRF cookies are host-only: only the host that set them gets them
+      back, which is correct on localhost and behind a single hostname. Split the
+      deployment, say a session minted by `auth.example.com` that `api.example.com`
+      verifies, and CSRF breaks first: `middleware/csrf.ts` HMACs each token against the
+      access-token cookie, so where the CSRF cookie does not reach, valid requests fail the
+      check with a 403. `COOKIE_DOMAIN=example.com` scopes both to the shared parent, and
+      the clear path uses the same value, so logout still expires the cookie the browser
+      holds. A `Domain` cookie goes to every subdomain underneath, including ones you do
+      not run, and it only reaches hosts under one registrable domain: a frontend on a
+      different domain has to come through a shared origin or authenticate with a bearer
+      token, because `SameSite=None` is not on offer here.
 - [ ] **`server.keepAliveTimeout` and `server.headersTimeout` are unset.** Node's defaults
       are shorter than the idle timeout on an AWS ALB, which produces intermittent 502s
       that are miserable to diagnose. Set them above whatever your load balancer uses.
@@ -113,8 +125,8 @@ path:
 | | test files | tests |
 | --- | --- | --- |
 | `base-backend` | 3 | 16 |
-| `base-backend-jwt` | 3 | 17 |
-| `base-backend-lacewing` | 4 | 29 |
+| `base-backend-jwt` | 4 | 22 |
+| `base-backend-lacewing` | 5 | 34 |
 
 CI lints, format-checks, builds and runs those on Node 24. It does not start the built
 artefact. That gap matters more here than it would elsewhere, because these templates

@@ -121,7 +121,9 @@ tests use a real client with real signed tokens over a real port.
   surface, because every mutation is a `POST` with `content-type: application/json`, which
   is not a "simple request" and so is preflighted. If you add cookie-authenticated form
   posts or relax `SameSite`, you need CSRF tokens - see `csrf-csrf` in the Express
-  template.
+  template. Note that this argument is about forged *requests*; a host under
+  `COOKIE_DOMAIN` writing an `access_token` cookie of its own is a different attack, and
+  `readCookies` answers it by dropping any name that arrives twice.
 - **Rate limiting** on login. Add it before you ship; brute force is the obvious attack on
   the one endpoint that accepts passwords.
 - **Email verification and password reset.** Both need a mailer, which is a choice this
@@ -141,3 +143,4 @@ Beyond the base template's variables:
 | `REFRESH_TOKEN_TTL_DAYS` | Default `7`. Revocable, so it can be generous. |
 | `COOKIE_SECURE` | **`true` in production.** Over plain http a Secure cookie is silently dropped. |
 | `COOKIE_SAME_SITE` | `lax` by default. `none` requires `Secure` and means CSRF is your problem. |
+| `COOKIE_DOMAIN` | Unset leaves every cookie host-only. Set the shared parent (`example.com`) once the app and the API sit on different hosts, or the frontend host never receives what the API set and a login that returned 200 is followed by requests with no session on them. A `Domain` cookie goes to every subdomain underneath, so pick the narrowest parent that covers your hosts. |

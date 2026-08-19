@@ -9,6 +9,11 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
  * it back as a header. A cross-site page can make the browser *send* the
  * cookie, but it cannot *read* it - so it can never produce the header, and
  * the server refuses its mutations.
+ *
+ * This only finds the cookie if the cookie is in scope for the host serving
+ * this page. Put the app and the API on different hosts without setting
+ * COOKIE_DOMAIN on the backend and the match below returns undefined every
+ * time, so no header goes out and every mutation comes back a CSRF failure.
  */
 function csrfToken(): string | undefined {
 	return document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)?.[1];

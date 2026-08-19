@@ -35,6 +35,52 @@ export const verifyRefreshToken = (token: string): JwtPayload => {
 	return jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
 };
 
+// A cookie is identified by name, domain and path together, so setting and
+// clearing have to name the same attributes or logout expires a cookie the
+// browser does not have and leaves the real one in place. One object, read by
+// both, is what keeps them from drifting.
+const cookieOptions = {
+	httpOnly: true,
+	secure: env.COOKIE_SECURE,
+	sameSite: env.COOKIE_SAME_SITE as "strict" | "lax" | "none",
+	domain: env.COOKIE_DOMAIN,
+};
+
+export const ACCESS_COOKIE = "access_token";
+export const REFRESH_COOKIE = "refresh_token";
+
+/**
+ * Nothing settles whether the first or the last `access_token=` wins when a
+ * header carries two, so a parser that picks one is guessing, and cookie-parser
+ * (which fills req.cookies) picks the first. An attacker who can write a cookie
+ * on this domain (a sibling subdomain, a cookie-injection bug) tosses in a
+ * second one whose value they know and hopes the guess goes their way. An
+ * ambiguous name is refused instead: no session rather than possibly theirs.
+ * The legitimate user is refused too while the extra cookie is in place, which
+ * is the trade worth making.
+ *
+ * COOKIE_DOMAIN makes this reachable by design, because a cookie scoped to a
+ * parent is one every subdomain under it can also write.
+ */
+export const readAccessCookie = (req: Request): string | undefined => {
+	const header = req.headers.cookie;
+
+	if (!header) return undefined;
+
+	let found: string | undefined;
+
+	for (const pair of header.split(";")) {
+		const eq = pair.indexOf("=");
+
+		if (eq === -1 || pair.slice(0, eq).trim() !== ACCESS_COOKIE) continue;
+		if (found !== undefined) return undefined;
+
+		found = pair.slice(eq + 1).trim();
+	}
+
+	return found || undefined;
+};
+
 export const setAuthCookies = (
 	res: Response,
 	accessToken: string,
@@ -48,18 +94,12 @@ export const setAuthCookies = (
 	const ACCESS_MAX_AGE_MS = durationToSeconds(env.JWT_ACCESS_EXPIRY) * 1000;
 	const REFRESH_MAX_AGE_MS = durationToSeconds(env.JWT_REFRESH_EXPIRY) * 1000;
 
-	const cookieOptions = {
-		httpOnly: true,
-		secure: env.COOKIE_SECURE,
-		sameSite: env.COOKIE_SAME_SITE as "strict" | "lax" | "none",
-	};
-
-	res.cookie("access_token", accessToken, {
+	res.cookie(ACCESS_COOKIE, accessToken, {
 		...cookieOptions,
 		maxAge: ACCESS_MAX_AGE_MS,
 	});
 
-	res.cookie("refresh_token", refreshToken, {
+	res.cookie(REFRESH_COOKIE, refreshToken, {
 		...cookieOptions,
 		maxAge: REFRESH_MAX_AGE_MS,
 		path: "/api/v1/auth/refresh",
@@ -67,14 +107,8 @@ export const setAuthCookies = (
 };
 
 export const clearAuthCookies = (res: Response): void => {
-	const cookieOptions = {
-		httpOnly: true,
-		secure: env.COOKIE_SECURE,
-		sameSite: env.COOKIE_SAME_SITE as "strict" | "lax" | "none",
-	};
-
-	res.clearCookie("access_token", cookieOptions);
-	res.clearCookie("refresh_token", {
+	res.clearCookie(ACCESS_COOKIE, cookieOptions);
+	res.clearCookie(REFRESH_COOKIE, {
 		...cookieOptions,
 		path: "/api/v1/auth/refresh",
 	});
@@ -85,7 +119,7 @@ export const authenticate = (
 	_res: Response,
 	next: NextFunction
 ): void => {
-	const token = req.cookies?.access_token;
+	const token = readAccessCookie(req);
 
 	if (!token) {
 		throw createError(401, "Access token required");
@@ -111,7 +145,7 @@ export const optionalAuth = (
 	_res: Response,
 	next: NextFunction
 ): void => {
-	const token = req.cookies?.access_token;
+	const token = readAccessCookie(req);
 
 	if (token) {
 		try {

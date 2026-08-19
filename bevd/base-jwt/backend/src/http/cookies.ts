@@ -25,12 +25,57 @@ const attributes = {
 	secure: env.COOKIE_SECURE,
 	sameSite: env.COOKIE_SAME_SITE,
 	path: "/",
+	// Host-only when COOKIE_DOMAIN is unset; config/env.ts says when to set it.
+	// Set and cleared through this one object because a cookie is identified by
+	// name, domain and path together: a logout that omits the domain expires a
+	// cookie the browser does not have and leaves the real one in place.
+	domain: env.COOKIE_DOMAIN,
 } as const;
 
+/**
+ * Nothing settles whether the first or the last `access_token=` wins when a
+ * header carries two, so a parser that picks one is guessing. An attacker who
+ * can write a cookie on this domain (a sibling subdomain, a cookie-injection
+ * bug) tosses in a second one whose value they know and hopes the guess goes
+ * their way. Names that arrive twice are dropped instead: the request is
+ * treated as anonymous rather than maybe-authenticated. It denies the
+ * legitimate user too while the extra cookie is in place, which is the trade
+ * worth making, and it is the same call lacewing makes in the sibling template.
+ *
+ * COOKIE_DOMAIN makes this reachable by design, because a cookie scoped to a
+ * parent is one every subdomain under it can also write.
+ */
 export function readCookies(req: Request): Record<string, string | undefined> {
 	const header = req.headers.get("cookie");
 
-	return header ? parseCookie(header) : {};
+	if (!header) return {};
+
+	const cookies = parseCookie(header);
+
+	for (const name of duplicatedNames(header)) {
+		cookies[name] = undefined;
+	}
+
+	return cookies;
+}
+
+function duplicatedNames(header: string): string[] {
+	const seen = new Set<string>();
+	const twice = new Set<string>();
+
+	for (const pair of header.split(";")) {
+		const eq = pair.indexOf("=");
+
+		if (eq === -1) continue;
+
+		const name = pair.slice(0, eq).trim();
+
+		if (seen.has(name)) twice.add(name);
+
+		seen.add(name);
+	}
+
+	return [...twice];
 }
 
 export function sessionCookies(accessToken: string, refreshToken: string): string[] {

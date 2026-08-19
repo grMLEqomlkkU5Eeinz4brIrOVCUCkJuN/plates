@@ -4,6 +4,15 @@ import { stringToArray } from "../utils/helpers.js";
 
 dotenv.config();
 
+/**
+ * Two RFC 1123 labels or more. A single label ("localhost", a container name)
+ * cannot work: a Domain attribute has to be a suffix of the request host, and
+ * browsers drop a cookie whose Domain is not. The leading dot is stripped
+ * before this runs; RFC 6265 reads ".example.com" and "example.com" alike.
+ */
+const COOKIE_DOMAIN_PATTERN =
+	/^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i;
+
 const envSchema = z.object({
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
@@ -64,7 +73,32 @@ const envSchema = z.object({
 		.string()
 		.min(32, "COOKIE_SECRET must be at least 32 characters"),
 	// "none" is not an option - cross-site token cookies are how CSRF happens.
-	COOKIE_SAME_SITE: z.enum(["strict", "lax"]).default("strict"),
+	// The message names the two ways to serve a frontend on a different
+	// registrable domain, because that is what people reach for "none" to fix.
+	COOKIE_SAME_SITE: z
+		.enum(["strict", "lax"], {
+			error: 'COOKIE_SAME_SITE must be "strict" or "lax". SameSite=None is not offered here: a cross-site token cookie is the thing CSRF exploits. For a frontend on a different registrable domain, either put both behind one origin (a reverse proxy mounting this API under a path) or send the access token as an Authorization: Bearer header, which authenticate() accepts.',
+		})
+		.default("strict"),
+	// Unset leaves every cookie host-only: only the host that set it gets it
+	// back, which is what one hostname serving everything wants and the only
+	// thing that works on localhost. Set the shared parent (example.com) when
+	// the browser has to reach more than one of your hosts, or the session and
+	// its CSRF cookie never arrive at the requests they authorise and the
+	// failure reads as a 401 or a CSRF rejection rather than a cookie problem.
+	// A Domain cookie also reaches every subdomain under it, including ones you
+	// do not run, so name the narrowest parent that covers your hosts. It rules
+	// out the __Host- cookie prefix, which means host-only by definition;
+	// lacewing rejects the combination.
+	COOKIE_DOMAIN: z
+		.string()
+		.trim()
+		.optional()
+		.transform((val) => (val ? val.replace(/^\./, "") : undefined))
+		.refine((val) => val === undefined || COOKIE_DOMAIN_PATTERN.test(val), {
+			message:
+				'COOKIE_DOMAIN must be a bare parent domain like "example.com": no scheme, no port, no path, at least two labels. Leave it unset on localhost and wherever one host serves everything.',
+		}),
 
 	// CSRF configuration
 	CSRF_SECRET: z

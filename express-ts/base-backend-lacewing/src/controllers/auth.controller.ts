@@ -10,7 +10,7 @@ import {
 	setAuthCookies,
 	clearAuthCookies,
 } from "../middleware/auth";
-import { generateToken } from "../middleware/csrf";
+import { clearCsrfCookie, generateToken } from "../middleware/csrf";
 import { createError } from "../middleware/errorHandler";
 import { readTokenCookie, JWTError } from "lacewing";
 
@@ -58,6 +58,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 	// exp. (Wire a shared store lookup by sub if you need "logout
 	// everywhere" semantics.)
 	clearAuthCookies(res);
+	clearCsrfCookie(res);
 
 	res.json({
 		success: true,

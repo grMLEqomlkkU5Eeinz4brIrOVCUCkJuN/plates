@@ -451,7 +451,17 @@ npm test
 | `COOKIE_SECRET`      | (required)                          | Secret for signing cookies (min 32 chars)        |
 | `COOKIE_SECURE`      | `true`                              | Set secure flag on cookies                       |
 | `COOKIE_SAME_SITE`   | `strict`                            | SameSite cookie attribute                        |
+| `COOKIE_DOMAIN`      | (unset)                             | Parent domain for the session and CSRF cookies. Unset leaves them host-only |
 | `CSRF_SECRET`        | (required)                          | Secret for CSRF token generation (min 32 chars)  |
+
+Unset, `COOKIE_DOMAIN` leaves every cookie host-only: only the host that set it
+gets it back, which is right on localhost and behind a single hostname. Once
+more than one of your hosts has to see the session, set the shared parent.
+`middleware/csrf.ts` HMACs each CSRF token against the access-token cookie, so
+the two need the same scope: where the CSRF cookie does not reach, valid
+requests fail the check with a 403 and no part of the error mentions cookies. A
+`Domain` cookie also goes to every subdomain underneath, including any you do
+not run, so name the narrowest parent that covers your hosts.
 
 ## Available Scripts
 
@@ -507,6 +517,15 @@ router.get("/", authenticate, handler);
 // State-changing, requires login + CSRF token
 router.post("/", authenticate, doubleCsrfProtection, handler);
 ```
+
+The CSRF token is HMAC-bound to the access-token cookie, so it stops validating the moment
+that cookie rotates. Login and refresh both return a fresh `csrfToken` in the response
+body; a client that caches the one from login gets 403s from the first refresh onward, at
+`JWT_ACCESS_EXPIRY` old. Read it from each response rather than storing it once.
+
+A second cookie of the same name is refused rather than resolved. Any host under
+`COOKIE_DOMAIN` can set `access_token`, browsers send both copies, and nothing says which
+wins, so `authenticate` treats a duplicated name as no session at all.
 
 ### Logging
 
