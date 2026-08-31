@@ -33,7 +33,7 @@ and the one most hosting, tracing and APM vendors document first.
 | CORS | [cors](https://github.com/expressjs/cors) | Origin allowlist; matters as soon as a browser talks to the service. |
 | Logging | [winston](https://github.com/winstonjs/winston) + `winston-daily-rotate-file` | Structured logs to `logs/`, rotated, with [morgan](https://github.com/expressjs/morgan) feeding it the access log. |
 | API docs | [swagger-jsdoc](https://github.com/Surnet/swagger-jsdoc) + [swagger-ui-express](https://github.com/scottie1984/swagger-ui-express) | OpenAPI generated from JSDoc next to the route, so it rots slower than a separate spec file. |
-| Config | [dotenv](https://github.com/motdotla/dotenv) | `.env` in dev; real env vars in production. |
+| Config | Node's native `--env-file` | `.env.development` in dev, `.env.production` for the built artefact; real env vars still win over both. Parsed by [zod](https://zod.dev) in `config/env.ts`. |
 
 Auth templates add:
 
@@ -86,7 +86,7 @@ role-gated admin UI and the browser half of double-submit CSRF in
 | --- | --- | --- |
 | Lint | ESLint 10 (flat config), from [`standard/`](../standard); formatting via `.editorconfig` | [Biome](https://biomejs.dev) (`biome.jsonc`) |
 | Tests | [Jest](https://jestjs.io) + ts-jest + [supertest](https://github.com/ladjs/supertest) | [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (real Postgres, in-process) |
-| Dev loop | [nodemon](https://nodemon.io) | `bun --watch` |
+| Dev loop | `node --watch` + [tsx](https://tsx.is) loader | `bun --watch` |
 | Git hooks | [lefthook](https://lefthook.dev) | lefthook |
 | Commits | [commitlint](https://commitlint.js.org) + Conventional Commits | same |
 | CI | GitHub Actions | GitHub Actions |

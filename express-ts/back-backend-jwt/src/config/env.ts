@@ -1,8 +1,5 @@
 import { z } from "zod";
-import dotenv from "dotenv";
 import { stringToArray } from "../utils/helpers.js";
-
-dotenv.config();
 
 /**
  * Two RFC 1123 labels or more. A single label ("localhost", a container name)
@@ -40,7 +37,7 @@ const envSchema = z.object({
 		.transform(stringToArray),
 	// Defaults to false so that it does not contradict the CORS_ORIGIN default
 	// above. Turn it on and you must name an origin - see the refine at the
-	// bottom of this file. .env.example does exactly that.
+	// bottom of this file. .env.production.example does exactly that.
 	CORS_CREDENTIALS: z
 		.enum(["true", "false"])
 		.default("false")

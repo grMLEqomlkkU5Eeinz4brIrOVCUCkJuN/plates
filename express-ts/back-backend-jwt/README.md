@@ -8,13 +8,13 @@ This is a simple Express.js backend template with TypeScript, Zod validation, Wi
 # Install dependencies
 npm install
 
-# Development (hot reload)
+# Development - watch mode (node --watch), auto-loads .env.development
 npm run dev
 
 # Run tests
 npm test
 
-# Build for production
+# Build and run for production (prod config: see .env.production.example)
 npm run build
 npm start
 ```
@@ -26,7 +26,6 @@ npm start
 ├── Dockerfile
 ├── eslint.config.mjs
 ├── jest.config.ts
-├── nodemon.json
 ├── package.json
 ├── package-lock.json
 ├── README.md
@@ -442,6 +441,8 @@ npm test
 
 ## Environment Variables
 
+`config/env.ts` validates these with zod at startup. `npm run dev` loads `.env.development`, `npm start` loads `.env.production` - both through Node's native `--env-file-if-exists`, so the file is optional and a real environment variable always wins over it. Keys with a default below can be omitted.
+
 | Variable           | Default                             | Description                       |
 | ------------------ | ----------------------------------- | --------------------------------- |
 | `NODE_ENV`         | `development`                       | Environment mode                  |
@@ -456,9 +457,9 @@ npm test
 
 | Script                  | Description           |
 | ----------------------- | --------------------- |
-| `npm run dev`           | Start with hot reload |
+| `npm run dev`           | Watch mode (node --watch); loads `.env.development` |
 | `npm run build`         | Compile TypeScript    |
-| `npm start`             | Run production build  |
+| `npm start`             | Run the build; loads `.env.production` |
 | `npm test`              | Run all tests         |
 | `npm run test:watch`    | Watch mode            |
 | `npm run test:coverage` | With coverage         |

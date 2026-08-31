@@ -41,18 +41,17 @@ confusion, revoked-but-unexpired access tokens - and are a decent tour of the li
 ```bash
 npm install
 
-# The app will not boot with placeholder secrets - lacewing entropy-checks
-# them. Generate real ones and put them in .env:
-cp .env.example .env
-npm run secrets   # paste its output over the empty secret lines in .env
-
-# Development (hot reload)
+# Development - watch mode (node --watch), auto-loads .env.development.
+# That file ships with random dev-only secrets that pass lacewing's entropy
+# check, so this works straight away.
 npm run dev
 
 # Run tests
 npm test
 
-# Build for production
+# Build and run for production
+cp .env.production.example .env.production
+npm run secrets   # paste its output over the empty secret lines in .env.production
 npm run build
 npm start
 ```
@@ -83,7 +82,6 @@ Browsers authenticate with the httpOnly cookie; everything else can send
 ├── Dockerfile
 ├── eslint.config.mjs
 ├── jest.config.ts
-├── nodemon.json
 ├── package.json
 ├── README.md
 ├── src
@@ -127,6 +125,8 @@ await request(app).get("/api/v1/products").set(asUser(session));
 ```
 
 ## Environment Variables
+
+`config/env.ts` validates these with zod at startup. `npm run dev` loads `.env.development`, `npm start` loads `.env.production` - both through Node's native `--env-file-if-exists`, so the file is optional and a real environment variable always wins over it. Keys with a default below can be omitted.
 
 | Variable             | Default                        | Description                                                                |
 | -------------------- | ------------------------------ | -------------------------------------------------------------------------- |
@@ -175,10 +175,10 @@ solve. `config/env.ts` prints the same two options if you try `COOKIE_SAME_SITE=
 
 | Script                  | Description                                                     |
 | ----------------------- | --------------------------------------------------------------- |
-| `npm run dev`           | Start with hot reload                                           |
+| `npm run dev`           | Watch mode (`node --watch`); loads `.env.development`           |
 | `npm run secrets`       | Print entropy-check-passing values for the four secret env vars |
 | `npm run build`         | Compile TypeScript                                              |
-| `npm start`             | Run production build                                            |
+| `npm start`             | Run the build; loads `.env.production`                          |
 | `npm test`              | Run all tests                                                   |
 | `npm run test:watch`    | Watch mode                                                      |
 | `npm run test:coverage` | With coverage                                                   |

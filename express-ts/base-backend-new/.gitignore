@@ -16,10 +16,13 @@ logs/
 *.log
 npm-debug.log*
 
-# Environment - commit only the example
+# Environment
+# .env.development (safe dev defaults) and .env.production.example (template)
+# are committed. Real production secrets live in .env.production, which is not.
 .env
 .env.*
-!.env.example
+!.env.development
+!.env.production.example
 
 # Caches
 .eslintcache

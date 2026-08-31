@@ -83,15 +83,19 @@ For a **`bevd/`** template, follow [its own README](./bevd) - those run on Bun, 
 For an **`express-ts/`** template:
 
 ```sh
-npm install          # also installs the git hooks
-cp .env.example .env # JWT templates only
-npm run dev
+npm install   # also installs the git hooks
+npm run dev   # watch mode; auto-loads the committed .env.development
 ```
 
-The `express-ts` JWT templates won't boot until `.env` has `JWT_SECRET`,
-`JWT_REFRESH_SECRET`, `COOKIE_SECRET` and `CSRF_SECRET` - each at least 32 characters.
-For `base-backend-lacewing` they must also be actually random - lacewing entropy-checks
-them at boot - so run `npm run secrets` and paste the output into `.env`.
+Every `express-ts` template ships a committed `.env.development` with safe
+dev-only values (the JWT templates' secrets included), so `npm run dev` works
+straight after `npm install`. For production, `cp .env.production.example
+.env.production` and fill it in - `npm start` loads that file.
+
+The JWT templates need `JWT_SECRET`, `JWT_REFRESH_SECRET`, `COOKIE_SECRET` and
+`CSRF_SECRET`, each at least 32 characters. For `base-backend-lacewing` they must
+also be actually random - lacewing entropy-checks them at boot - so run
+`npm run secrets` and paste the output into `.env.production`.
 
 When a lacewing template's tokens need verifying from a second service while staying on
 HMAC, see [docs/symmetric-jwks.md](./docs/symmetric-jwks.md) before building a JWKS
@@ -101,9 +105,9 @@ endpoint - a symmetric JWKS is a secret document, not a public one.
 
 | Script                | Does                                        |
 | --------------------- | ------------------------------------------- |
-| `npm run dev`         | Watch mode via nodemon.                     |
+| `npm run dev`         | Watch mode (`node --watch`); loads `.env.development`. |
 | `npm run build`       | Compile to `dist/` (tests excluded).        |
-| `npm start`           | Run the build.                              |
+| `npm start`           | Run the build; loads `.env.production`.      |
 | `npm test`            | Jest.                                       |
 | `npm run typecheck`   | Type-check everything, tests included.      |
 | `npm run lint`        | ESLint.                                     |
