@@ -1,7 +1,0 @@
-node_modules/
-dist/
-out/
-build/
-coverage/
-package-lock.json
-CHANGELOG.md

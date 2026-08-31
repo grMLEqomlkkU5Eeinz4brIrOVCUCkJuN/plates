@@ -6,10 +6,6 @@ commit-msg:
 pre-commit:
   parallel: true
   commands:
-    format:
-      glob: "*.{ts,js,mjs,cjs,json,yml,yaml,md}"
-      run: npx prettier --write {staged_files}
-      stage_fixed: true
     lint:
       glob: "*.{ts,js,mjs,cjs}"
       run: npx eslint --fix {staged_files}

@@ -33,8 +33,8 @@ and frontend, and why each piece is there - read it if you are choosing between 
 | `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
 | `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |
 
-These share the config in [`standard/`](./standard) - Prettier, ESLint, TypeScript,
-lefthook, CI. See that folder's README before changing any of it.
+These share the config in [`standard/`](./standard) - ESLint, TypeScript,
+`.editorconfig`, lefthook, CI. See that folder's README before changing any of it.
 
 ### Full-stack - Bun + Elysia + Vue + Drizzle
 
@@ -44,7 +44,7 @@ lefthook, CI. See that folder's README before changing any of it.
 | `bevd/base-jwt`   | JWT (httpOnly cookies) + roles | The same, plus sessions, refresh-token rotation, and admin-only resources. |
 | `bevd/base-lacewing` | JWT via [lacewing](https://github.com/Smiduweorc/lacewing) + roles + CSRF | `base-jwt` with the token lifecycle moved onto lacewing, plus double-submit CSRF end to end (Vue client included). Doubles as a lacewing demo. |
 
-See [`bevd/`](./bevd). These use **Biome** instead of `standard/`'s ESLint + Prettier -
+See [`bevd/`](./bevd). These use **Biome** instead of `standard/`'s ESLint -
 that folder's README explains why, and lists the footguns worth knowing before you start.
 
 ## Grab a template
@@ -107,6 +107,5 @@ endpoint - a symmetric JWKS is a secret document, not a public one.
 | `npm test`            | Jest.                                       |
 | `npm run typecheck`   | Type-check everything, tests included.      |
 | `npm run lint`        | ESLint.                                     |
-| `npm run format`      | Prettier, write.                            |
 
 Requires Node 24 (see `.nvmrc`).

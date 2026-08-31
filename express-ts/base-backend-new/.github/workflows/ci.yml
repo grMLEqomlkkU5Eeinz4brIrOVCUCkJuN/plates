@@ -1,4 +1,4 @@
-# Lints, format-checks, builds and tests the project.
+# Lints, builds and tests the project.
 # See: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 name: CI
 on:
@@ -21,7 +21,7 @@ permissions:
     contents: read
 
 jobs:
-    # Lint, format check and build once, on the project's pinned Node version.
+    # Lint and build once, on the project's pinned Node version.
     quality:
         name: lint & build
         runs-on: ubuntu-latest
@@ -34,8 +34,6 @@ jobs:
             - run: npm ci
             - name: Lint
               run: npm run lint
-            - name: Check formatting
-              run: npm run format:check
             - name: Build
               run: npm run build
 

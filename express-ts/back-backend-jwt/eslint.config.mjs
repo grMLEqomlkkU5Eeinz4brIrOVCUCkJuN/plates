@@ -2,7 +2,6 @@
 import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
-import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
 	{
@@ -16,8 +15,6 @@ export default tseslint.config(
 	},
 	js.configs.recommended,
 	...tseslint.configs.recommended,
-	// Must stay last of the presets: turns off every rule that fights Prettier.
-	prettier,
 	{
 		languageOptions: {
 			globals: globals.node,

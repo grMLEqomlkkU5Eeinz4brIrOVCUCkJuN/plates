@@ -87,7 +87,7 @@ platform probably already handles for you. Read it before the first deploy, not 
 
 ## Notes
 
-These templates use **Biome**, not the ESLint + Prettier setup in [`standard/`](../standard),
+These templates use **Biome**, not the ESLint setup in [`standard/`](../standard),
 because Biome is one binary, does not fight Bun, and is what the upstream
 [bevd](https://github.com/grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/bevd) project already used. They
 keep the rest of the house style: tabs, double quotes, Conventional Commits, lefthook,

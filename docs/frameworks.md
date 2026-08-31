@@ -84,7 +84,7 @@ role-gated admin UI and the browser half of double-submit CSRF in
 
 | Concern | `express-ts/` | `bevd/` |
 | --- | --- | --- |
-| Lint + format | ESLint 10 (flat config) + Prettier, from [`standard/`](../standard) | [Biome](https://biomejs.dev) (`biome.jsonc`) |
+| Lint | ESLint 10 (flat config), from [`standard/`](../standard); formatting via `.editorconfig` | [Biome](https://biomejs.dev) (`biome.jsonc`) |
 | Tests | [Jest](https://jestjs.io) + ts-jest + [supertest](https://github.com/ladjs/supertest) | [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (real Postgres, in-process) |
 | Dev loop | [nodemon](https://nodemon.io) | `bun --watch` |
 | Git hooks | [lefthook](https://lefthook.dev) | lefthook |

@@ -128,7 +128,7 @@ path:
 | `base-backend-jwt` | 4 | 22 |
 | `base-backend-lacewing` | 5 | 34 |
 
-CI lints, format-checks, builds and runs those on Node 24. It does not start the built
+CI lints, builds and runs those on Node 24. It does not start the built
 artefact. That gap matters more here than it would elsewhere, because these templates
 compile to `dist/` and the container runs `node dist/main.js` - a path that no test
 touches. The `bevd/` templates guard the equivalent gap with a step that boots the server
