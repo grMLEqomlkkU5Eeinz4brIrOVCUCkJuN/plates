@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Prisma Client, written by `prisma generate` (which `npm install` runs).
+# Generated code in git is a merge conflict waiting to happen, and it is stale
+# the moment somebody edits prisma/schema.prisma without regenerating.
+src/generated/
+
+# Build output
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Tests & coverage
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment
+# .env.development (safe dev defaults) and .env.production.example (template)
+# are committed. Real production secrets live in .env.production, which is not.
+.env
+.env.*
+!.env.development
+!.env.production.example
+
+# Caches
+.eslintcache
+.cache/
+
+# Editors & OS
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

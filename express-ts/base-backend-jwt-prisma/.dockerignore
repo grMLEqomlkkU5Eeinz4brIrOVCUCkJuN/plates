@@ -1,0 +1,10 @@
+node_modules
+dist
+# Written by `prisma generate` inside the image; a host copy is only stale.
+src/generated
+.git
+.gitignore
+.env
+Dockerfile
+README.md
+npm-debug.log

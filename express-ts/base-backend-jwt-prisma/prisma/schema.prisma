@@ -1,0 +1,30 @@
+// The datasource URL lives in prisma.config.ts, not here: Prisma 7 reads
+// connection details from the config file, and the schema only describes shape.
+//
+// Run `npm run db:migrate` after editing a model - the generated client under
+// src/generated/prisma is what the rest of the app imports, and it is only
+// rewritten by `prisma generate` (which `npm install` and `db:migrate` both run).
+
+generator client {
+	provider = "prisma-client"
+	output   = "../src/generated/prisma"
+	runtime  = "nodejs"
+	// The project compiles to CommonJS (no "type": "module" in package.json,
+	// `module: nodenext` in tsconfig). An ESM client in a CommonJS app fails at
+	// require time with ERR_REQUIRE_ESM, so the two have to agree.
+	moduleFormat = "cjs"
+}
+
+datasource db {
+	provider = "postgresql"
+}
+
+model User {
+	id        String   @id @default(uuid()) @db.Uuid
+	email     String   @unique
+	name      String
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@map("users")
+}

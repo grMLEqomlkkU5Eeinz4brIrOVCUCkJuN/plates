@@ -1,0 +1,96 @@
+# Lints, builds and tests the project.
+# See: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+name: CI
+on:
+    push:
+        branches: ["master", "main", "dev"]
+        paths-ignore:
+            - "**.md"
+    pull_request:
+        branches: ["master", "main", "dev"]
+        paths-ignore:
+            - "**.md"
+    workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    # Lint and build once, on the project's pinned Node version.
+    quality:
+        name: lint & build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: ".nvmrc"
+                  cache: "npm"
+            - run: npm ci
+            - name: Lint
+              run: npm run lint
+            - name: Build
+              run: npm run build
+
+    # The migrations in prisma/migrations are SQL nothing else checks. Applying
+    # them to an empty Postgres is the only thing that proves they still line up
+    # with prisma/schema.prisma.
+    migrations:
+        name: migrations apply
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:17-alpine
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: ci
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U postgres"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+        env:
+            DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci?schema=public
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: ".nvmrc"
+                  cache: "npm"
+            - run: npm ci
+            - name: Apply migrations
+              run: npm run db:deploy
+            # Compares the database the migrations just built against
+            # schema.prisma. `--exit-code` returns 2 when they differ, which is
+            # what a schema edit nobody generated a migration for looks like.
+            - name: Check the schema matches the migrations
+              run: >-
+                  npx prisma migrate diff
+                  --from-config-datasource
+                  --to-schema prisma/schema.prisma
+                  --exit-code
+
+    # Tests across supported Node versions.
+    test:
+        name: test (node ${{ matrix.node-version }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                node-version: [24.x]
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: "npm"
+            - run: npm ci
+            - run: npm test
