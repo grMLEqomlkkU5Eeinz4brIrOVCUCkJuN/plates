@@ -1,4 +1,4 @@
-# Lints, builds and tests the project.
+# Lints, typechecks, builds and tests the project against a real Postgres.
 # See: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 name: CI
 on:
@@ -21,9 +21,11 @@ permissions:
     contents: read
 
 jobs:
-    # Lint and build once, on the project's pinned Node version.
+    # Lint, typecheck and build once, on the project's pinned Node version.
+    # `npm ci` runs `prisma generate` through postinstall, and generate never
+    # connects, so this job needs no database.
     quality:
-        name: lint & build
+        name: lint, typecheck & build
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -32,16 +34,17 @@ jobs:
                   node-version-file: ".nvmrc"
                   cache: "npm"
             - run: npm ci
-            - name: Lint
-              run: npm run lint
-            - name: Build
-              run: npm run build
+            - run: npm run lint
+            - run: npm run typecheck
+            - run: npm run build
 
-    # The migrations in prisma/migrations are SQL nothing else checks. Applying
-    # them to an empty Postgres is the only thing that proves they still line up
-    # with prisma/schema.prisma.
-    migrations:
-        name: migrations apply
+    # Every route suite runs against a real database, so the job has one. The
+    # migrations in prisma/migrations are SQL nothing else checks: applying
+    # them to an empty Postgres and diffing the result against schema.prisma is
+    # the only thing that proves they still describe the schema the code
+    # expects.
+    test:
+        name: migrations & test
         runs-on: ubuntu-latest
         services:
             postgres:
@@ -49,16 +52,18 @@ jobs:
                 env:
                     POSTGRES_USER: postgres
                     POSTGRES_PASSWORD: postgres
-                    POSTGRES_DB: ci
+                    POSTGRES_DB: jwt_prisma_backend_test
                 ports:
                     - 5432:5432
                 options: >-
-                    --health-cmd "pg_isready -U postgres"
+                    --health-cmd "pg_isready -U postgres -d jwt_prisma_backend_test"
                     --health-interval 5s
                     --health-timeout 5s
                     --health-retries 10
         env:
-            DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci?schema=public
+            # The same database .env.test names, so the deploy below and the
+            # suite cannot disagree about which one they mean.
+            NODE_ENV: test
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -66,31 +71,16 @@ jobs:
                   node-version-file: ".nvmrc"
                   cache: "npm"
             - run: npm ci
-            - name: Apply migrations
-              run: npm run db:deploy
-            # Compares the database the migrations just built against
-            # schema.prisma. `--exit-code` returns 2 when they differ, which is
-            # what a schema edit nobody generated a migration for looks like.
+            # deploy, not dev: CI applies the committed migrations and fails if
+            # they do not describe the schema the code expects.
+            - run: npm run db:deploy
+            # `--exit-code` returns 2 when the database the migrations built
+            # differs from schema.prisma, which is what a schema edit nobody
+            # generated a migration for looks like.
             - name: Check the schema matches the migrations
               run: >-
                   npx prisma migrate diff
                   --from-config-datasource
                   --to-schema prisma/schema.prisma
                   --exit-code
-
-    # Tests across supported Node versions.
-    test:
-        name: test (node ${{ matrix.node-version }})
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                node-version: [24.x]
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: ${{ matrix.node-version }}
-                  cache: "npm"
-            - run: npm ci
             - run: npm test

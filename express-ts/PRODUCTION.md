@@ -34,6 +34,12 @@ plumbing is the part that was hard to get right. But do not let the passing test
 persuade you that the auth story is finished, because the tests exercise the plumbing, not
 the credential check that does not exist yet.
 
+`base-backend-jwt-prisma` is the exception to both items: accounts are rows, passwords
+are argon2id hashes, refresh tokens are rotated database rows with reuse detection, and
+its suite runs against a real Postgres. It also already has the request id, the rate
+limiter, `trust proxy`, the body limit and the readiness probe from the lists below. Its
+own README has the list of what it still leaves to you.
+
 ## Usually not the application's job
 
 Tick these off by naming the thing that already handles them. If nothing does, they move to

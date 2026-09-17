@@ -1,10 +1,15 @@
 node_modules
 dist
+coverage
+logs
 # Written by `prisma generate` inside the image; a host copy is only stale.
 src/generated
 .git
 .gitignore
+.github
 .env
+.env.*
 Dockerfile
+docker-compose.yml
 README.md
 npm-debug.log

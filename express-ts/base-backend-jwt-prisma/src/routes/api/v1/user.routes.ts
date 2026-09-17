@@ -1,262 +1,132 @@
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
-import { createUserSchema, updateUserSchema } from "../../../models/user.model";
+import { rateLimit } from "../../../middleware/rateLimit";
 import {
-	createUserHandler,
-	getUsers,
-	getUserById,
-	updateUserHandler,
-	deleteUser,
+	deleteAccountSchema,
+	listUsersQuery,
+	updateAccountSchema,
+	userIdParams,
+} from "../../../models/user.model";
+import {
+	closeAccount,
+	getAccount,
+	getUser,
+	listUsers,
+	patchAccount,
 } from "../../../controllers/user.controller";
 
 const router = Router();
 
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid user ID format"),
-	}),
-};
-
 /**
- * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *           format: uuid
- *         email:
- *           type: string
- *           format: email
- *         name:
- *           type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *     CreateUser:
- *       type: object
- *       required:
- *         - email
- *         - name
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         name:
- *           type: string
- *           minLength: 1
- *           maxLength: 100
- *     UpdateUser:
- *       type: object
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         name:
- *           type: string
- *     Error:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           example: false
- *         message:
- *           type: string
+ * One `router.use(authenticate)` at the top rather than per route, so that a
+ * route added without it is impossible rather than a thing to remember. The
+ * account routes act on the caller's own row, taken from the token; there is
+ * no PATCH or DELETE /users/:id, because an ownership check that is written
+ * down anywhere can be forgotten somewhere.
  */
+router.use(authenticate);
 
 /**
  * @swagger
- * /users:
+ * /users/me:
  *   get:
- *     summary: Get all users
+ *     summary: The signed-in account.
  *     tags: [Users]
- *     security:
- *       - cookieAuth: []
+ *     security: [{ cookieAuth: [] }]
  *     responses:
  *       200:
- *         description: List of users
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/User'
+ *         description: The account.
  *       401:
- *         description: Unauthorized
+ *         description: UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.
  */
-router.get("/", authenticate, getUsers);
+router.get("/me", getAccount);
 
 /**
  * @swagger
- * /users:
- *   post:
- *     summary: Create a new user
- *     tags: [Users]
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: header
- *         name: x-csrf-token
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateUser'
- *     responses:
- *       201:
- *         description: User created
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/User'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Invalid CSRF token
- */
-router.post(
-	"/",
-	authenticate,
-	doubleCsrfProtection,
-	validate({ body: createUserSchema }),
-	createUserHandler
-);
-
-/**
- * @swagger
- * /users/{id}:
- *   get:
- *     summary: Get user by ID
- *     tags: [Users]
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: User found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/User'
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get("/:id", authenticate, validate(idParamSchema), getUserById);
-
-/**
- * @swagger
- * /users/{id}:
+ * /users/me:
  *   patch:
- *     summary: Update user
+ *     summary: Change name or email.
+ *     description: Unknown fields are a 400 rather than a silent drop.
  *     tags: [Users]
- *     security:
- *       - cookieAuth: []
+ *     security: [{ cookieAuth: [] }]
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: header
- *         name: x-csrf-token
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UpdateUser'
+ *       - { in: header, name: x-csrf-token, required: true, schema: { type: string } }
  *     responses:
  *       200:
- *         description: User updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/User'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Invalid CSRF token
- *       404:
- *         description: User not found
+ *         description: The updated account.
+ *       400:
+ *         description: VALIDATION_ERROR.
+ *       409:
+ *         description: EMAIL_TAKEN.
  */
-router.patch(
-	"/:id",
-	authenticate,
-	doubleCsrfProtection,
-	validate({ ...idParamSchema, body: updateUserSchema }),
-	updateUserHandler
-);
+router.patch("/me", doubleCsrfProtection, validate({ body: updateAccountSchema }), patchAccount);
 
 /**
  * @swagger
- * /users/{id}:
+ * /users/me:
  *   delete:
- *     summary: Delete user
+ *     summary: Close the account. Final.
+ *     description: >
+ *       Takes the current password: a borrowed session is not enough authority
+ *       to delete an account. The row and its sessions go; the cookies are
+ *       expired on the response.
  *     tags: [Users]
- *     security:
- *       - cookieAuth: []
+ *     security: [{ cookieAuth: [] }]
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: header
- *         name: x-csrf-token
- *         required: true
- *         schema:
- *           type: string
+ *       - { in: header, name: x-csrf-token, required: true, schema: { type: string } }
  *     responses:
  *       204:
- *         description: User deleted
+ *         description: Account closed.
  *       401:
- *         description: Unauthorized
- *       403:
- *         description: Invalid CSRF token
- *       404:
- *         description: User not found
+ *         description: INVALID_CREDENTIALS.
  */
 router.delete(
-	"/:id",
-	authenticate,
+	"/me",
 	doubleCsrfProtection,
-	validate(idParamSchema),
-	deleteUser
+	rateLimit("account-close"),
+	validate({ body: deleteAccountSchema }),
+	closeAccount
 );
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: A page of users, oldest first.
+ *     description: >
+ *       Cursor pagination. `cursor` is the id of the last user in the previous
+ *       page; a page shorter than `limit` is the end. `limit` is capped at 100
+ *       on the server.
+ *     tags: [Users]
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+ *       - { in: query, name: cursor, schema: { type: string, format: uuid } }
+ *     responses:
+ *       200:
+ *         description: The page.
+ */
+router.get("/", validate({ query: listUsersQuery }), listUsers);
+
+/**
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: One user's public profile.
+ *     tags: [Users]
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *     responses:
+ *       200:
+ *         description: The user.
+ *       400:
+ *         description: VALIDATION_ERROR, when the id is not a uuid.
+ *       404:
+ *         description: NOT_FOUND.
+ */
+router.get("/:id", validate({ params: userIdParams }), getUser);
 
 export default router;

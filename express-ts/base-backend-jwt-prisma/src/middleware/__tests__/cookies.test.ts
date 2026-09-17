@@ -2,7 +2,8 @@ import cookieParser from "cookie-parser";
 import { describe, expect, it, jest } from "@jest/globals";
 import express, { type Express } from "express";
 import request from "supertest";
-import { authenticate, generateAccessToken } from "../auth";
+import { authenticate } from "../auth";
+import { signAccessToken } from "../../services/token.service";
 
 /**
  * COOKIE_DOMAIN has to reach every cookie the auth flow sets, and the clear has
@@ -130,23 +131,17 @@ describe("a second cookie of the same name", () => {
 		const app = express();
 		app.use(cookieParser());
 		app.get("/whoami", authenticate, (req, res) => {
-			res.json({ email: req.user?.email });
+			res.json({ userId: req.auth?.userId });
 		});
 
-		const mine = generateAccessToken({
-			userId: "user-1",
-			email: "victim@example.com",
-		});
-		const planted = generateAccessToken({
-			userId: "user-2",
-			email: "attacker@example.com",
-		});
+		const mine = signAccessToken({ sub: "victim", sid: "session-1" });
+		const planted = signAccessToken({ sub: "attacker", sid: "session-2" });
 
 		const alone = await request(app)
 			.get("/whoami")
 			.set("Cookie", `access_token=${mine}`);
 		expect(alone.status).toBe(200);
-		expect(alone.body.email).toBe("victim@example.com");
+		expect(alone.body.userId).toBe("victim");
 
 		const shadowed = await request(app)
 			.get("/whoami")

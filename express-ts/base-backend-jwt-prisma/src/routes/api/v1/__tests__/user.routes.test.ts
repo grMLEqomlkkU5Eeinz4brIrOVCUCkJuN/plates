@@ -1,205 +1,196 @@
-import { beforeAll, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { createTestApp } from "../../../../test/app";
-import { asUser, loginSession, TestSession } from "../../../../test/auth";
+import { resetDatabase } from "../../../../test/db";
+import { PASSWORD, asUser, signUp, withCsrf, type TestSession } from "../../../../test/auth";
 
-// Swaps the Prisma client for the in-memory fake in src/db/__mocks__/prisma.ts,
-// so this suite keeps testing routing, auth, CSRF and validation without a
-// database to point at. See that file for what the trade costs and how to run
-// the same suite against a real Postgres.
-jest.mock("../../../../db/prisma");
-
-describe("User Routes", () => {
+describe("user routes", () => {
 	const app = createTestApp();
 	let session: TestSession;
 
-	beforeAll(async () => {
-		session = await loginSession(app);
-	});
-
-	const authed = (): Record<string, string> => asUser(session);
-	const csrf = (): Record<string, string> => ({
-		...authed(),
-		"x-csrf-token": session.csrfToken,
+	beforeEach(async () => {
+		await resetDatabase();
+		session = await signUp(app, "me@example.com", "Me");
 	});
 
 	describe("authentication", () => {
-		it("should reject anonymous requests", async () => {
-			const response = await request(app).get("/api/v1/users");
+		it("refuses an anonymous request", async () => {
+			const response = await request(app).get("/api/v1/users/me");
 
 			expect(response.status).toBe(401);
+			expect(response.body.code).toBe("UNAUTHENTICATED");
 		});
 
-		it("should reject mutations without a CSRF token", async () => {
+		it("refuses a cookie that is not a token this server signed", async () => {
 			const response = await request(app)
-				.post("/api/v1/users")
-				.set(authed())
-				.send({ email: "test@example.com", name: "Test User" });
+				.get("/api/v1/users/me")
+				.set("Cookie", "access_token=eyJhbGciOiJub25lIn0.e30.");
+
+			expect(response.status).toBe(401);
+			expect(response.body.code).toBe("TOKEN_INVALID");
+		});
+
+		it("refuses a mutation without the CSRF header", async () => {
+			const response = await request(app)
+				.patch("/api/v1/users/me")
+				.set(asUser(session))
+				.send({ name: "Nope" });
 
 			expect(response.status).toBe(403);
+			expect(response.body.code).toBe("CSRF_INVALID");
 		});
 	});
 
-	describe("POST /api/v1/users", () => {
-		it("should create a user with valid data", async () => {
-			const response = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "test@example.com",
-					name: "Test User",
-				});
+	describe("GET /api/v1/users/me", () => {
+		it("returns the account without the password hash", async () => {
+			const response = await request(app).get("/api/v1/users/me").set(asUser(session));
 
-			expect(response.status).toBe(201);
-			expect(response.body).toMatchObject({
-				email: "test@example.com",
-				name: "Test User",
+			expect(response.status).toBe(200);
+			expect(response.body.user).toEqual({
+				id: session.userId,
+				email: "me@example.com",
+				name: "Me",
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
 			});
-			expect(response.body.id).toBeDefined();
+		});
+	});
+
+	describe("PATCH /api/v1/users/me", () => {
+		it("changes the name", async () => {
+			const response = await request(app)
+				.patch("/api/v1/users/me")
+				.set(withCsrf(session))
+				.send({ name: "Renamed" });
+
+			expect(response.status).toBe(200);
+			expect(response.body.user).toMatchObject({ id: session.userId, name: "Renamed" });
 		});
 
-		it("should reject invalid email", async () => {
+		it("answers 409 EMAIL_TAKEN when the new address belongs to someone else", async () => {
+			await signUp(app, "other@example.com", "Other");
+
 			const response = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "invalid",
-					name: "Test User",
-				});
-
-			expect(response.status).toBe(400);
-			expect(response.body.success).toBe(false);
-		});
-
-		it("should reject missing name", async () => {
-			const response = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "test@example.com",
-				});
-
-			expect(response.status).toBe(400);
-			expect(response.body.success).toBe(false);
-		});
-
-		it("should reject a duplicate email with 409", async () => {
-			// email is `@unique` in prisma/schema.prisma, so this is P2002 from
-			// the driver - middleware/errorHandler.ts is what turns it into a
-			// status code instead of a 500.
-			const response = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "test@example.com",
-					name: "Duplicate",
-				});
+				.patch("/api/v1/users/me")
+				.set(withCsrf(session))
+				.send({ email: "other@example.com" });
 
 			expect(response.status).toBe(409);
-			expect(response.body.success).toBe(false);
+			expect(response.body.code).toBe("EMAIL_TAKEN");
+		});
+
+		it("refuses an empty patch and an unknown field", async () => {
+			const empty = await request(app).patch("/api/v1/users/me").set(withCsrf(session)).send({});
+			const unknown = await request(app)
+				.patch("/api/v1/users/me")
+				.set(withCsrf(session))
+				.send({ passwordHash: "owned" });
+
+			expect(empty.status).toBe(400);
+			expect(unknown.status).toBe(400);
+			expect(unknown.body.code).toBe("VALIDATION_ERROR");
+		});
+	});
+
+	describe("DELETE /api/v1/users/me", () => {
+		it("refuses the wrong password", async () => {
+			const response = await request(app)
+				.delete("/api/v1/users/me")
+				.set(withCsrf(session))
+				.send({ password: "not-the-password" });
+
+			expect(response.status).toBe(401);
+			expect(response.body.code).toBe("INVALID_CREDENTIALS");
+		});
+
+		it("closes the account, after which the token in hand names nobody", async () => {
+			const response = await request(app)
+				.delete("/api/v1/users/me")
+				.set(withCsrf(session))
+				.send({ password: PASSWORD });
+
+			expect(response.status).toBe(204);
+
+			// The access token is still signed and unexpired; the row is gone.
+			const afterwards = await request(app).get("/api/v1/users/me").set(asUser(session));
+			expect(afterwards.status).toBe(401);
+			expect(afterwards.body.code).toBe("UNAUTHENTICATED");
+
+			// The refresh family went with the row, by cascade.
+			const refresh = await request(app)
+				.post("/api/v1/auth/refresh")
+				.set("Cookie", `refresh_token=${session.refreshToken}`);
+			expect(refresh.status).toBe(401);
 		});
 	});
 
 	describe("GET /api/v1/users", () => {
-		it("should return array of users", async () => {
-			const response = await request(app)
-				.get("/api/v1/users")
-				.set(authed());
+		it("pages oldest first by cursor, and a short page is the end", async () => {
+			const second = await signUp(app, "second@example.com", "Second");
+			const third = await signUp(app, "third@example.com", "Third");
 
-			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			const page1 = await request(app).get("/api/v1/users?limit=2").set(asUser(session));
+			expect(page1.status).toBe(200);
+			expect(page1.body.users.map((user: { id: string }) => user.id)).toEqual([
+				session.userId,
+				second.userId,
+			]);
+
+			const page2 = await request(app)
+				.get(`/api/v1/users?limit=2&cursor=${second.userId}`)
+				.set(asUser(session));
+			expect(page2.body.users.map((user: { id: string }) => user.id)).toEqual([third.userId]);
+
+			const page3 = await request(app)
+				.get(`/api/v1/users?limit=2&cursor=${third.userId}`)
+				.set(asUser(session));
+			expect(page3.body.users).toEqual([]);
+		});
+
+		it("shows nobody's email", async () => {
+			const response = await request(app).get("/api/v1/users").set(asUser(session));
+
+			expect(response.body.users).toEqual([
+				{ id: session.userId, name: "Me", createdAt: expect.any(String) },
+			]);
+		});
+
+		it("caps the page size on the server", async () => {
+			const response = await request(app).get("/api/v1/users?limit=1000").set(asUser(session));
+
+			expect(response.status).toBe(400);
+			expect(response.body.details[0].field).toBe("query.limit");
 		});
 	});
 
 	describe("GET /api/v1/users/:id", () => {
-		it("should return 400 for invalid uuid", async () => {
+		it("returns the public profile", async () => {
 			const response = await request(app)
-				.get("/api/v1/users/invalid-id")
-				.set(authed());
-
-			expect(response.status).toBe(400);
-		});
-
-		it("should return 404 for non-existent user", async () => {
-			const response = await request(app)
-				.get("/api/v1/users/00000000-0000-0000-0000-000000000000")
-				.set(authed());
-
-			expect(response.status).toBe(404);
-		});
-	});
-
-	describe("PATCH /api/v1/users/:id", () => {
-		it("should update user", async () => {
-			// First create a user
-			const createResponse = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "update@example.com",
-					name: "Original Name",
-				});
-
-			const userId = createResponse.body.id;
-
-			// Then update
-			const response = await request(app)
-				.patch(`/api/v1/users/${userId}`)
-				.set(csrf())
-				.send({
-					name: "Updated Name",
-				});
+				.get(`/api/v1/users/${session.userId}`)
+				.set(asUser(session));
 
 			expect(response.status).toBe(200);
-			expect(response.body.name).toBe("Updated Name");
-			expect(response.body.email).toBe("update@example.com");
+			expect(response.body.user).toEqual({
+				id: session.userId,
+				name: "Me",
+				createdAt: expect.any(String),
+			});
 		});
-	});
 
-	describe("PATCH /api/v1/users/:id (missing row)", () => {
-		it("should return 404", async () => {
+		it("answers 400 for an id that is not a uuid", async () => {
+			const response = await request(app).get("/api/v1/users/invalid-id").set(asUser(session));
+
+			expect(response.status).toBe(400);
+			expect(response.body.details[0].field).toBe("params.id");
+		});
+
+		it("answers 404 for a user that is not there", async () => {
 			const response = await request(app)
-				.patch("/api/v1/users/00000000-0000-0000-0000-000000000000")
-				.set(csrf())
-				.send({ name: "Nobody" });
+				.get("/api/v1/users/00000000-0000-0000-0000-000000000000")
+				.set(asUser(session));
 
 			expect(response.status).toBe(404);
-		});
-	});
-
-	describe("DELETE /api/v1/users/:id", () => {
-		it("should delete user", async () => {
-			// First create a user
-			const createResponse = await request(app)
-				.post("/api/v1/users")
-				.set(csrf())
-				.send({
-					email: "delete@example.com",
-					name: "To Delete",
-				});
-
-			const userId = createResponse.body.id;
-
-			// Then delete
-			const response = await request(app)
-				.delete(`/api/v1/users/${userId}`)
-				.set(csrf());
-
-			expect(response.status).toBe(204);
-
-			// Verify deleted
-			const getResponse = await request(app)
-				.get(`/api/v1/users/${userId}`)
-				.set(authed());
-			expect(getResponse.status).toBe(404);
-		});
-
-		it("should return 404 for a row that is not there", async () => {
-			const response = await request(app)
-				.delete("/api/v1/users/00000000-0000-0000-0000-000000000000")
-				.set(csrf());
-
-			expect(response.status).toBe(404);
+			expect(response.body.code).toBe("NOT_FOUND");
 		});
 	});
 });

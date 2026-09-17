@@ -15,6 +15,12 @@ const config: Config = {
 		"!**/generated/**",
 	],
 	coverageDirectory: "../coverage",
+	// One database, and every suite truncates it between tests: two workers
+	// empty each other's rows mid-test, which surfaces as a spray of unrelated
+	// 401s that all pass when the file is run alone. Serial is the price of
+	// testing against a real Postgres; per-worker schemas are the way out if
+	// the run ever gets slow.
+	maxWorkers: 1,
 	setupFiles: ["<rootDir>/test/env.ts"],
 	setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
 	moduleNameMapper: {

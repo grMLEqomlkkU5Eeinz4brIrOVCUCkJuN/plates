@@ -1,88 +1,96 @@
 import { describe, expect, it } from "@jest/globals";
-import {
-	createUserSchema,
-	updateUserSchema,
-	userSchema,
-} from "../user.model";
+import { loginSchema, registerSchema } from "../auth.model";
+import { listUsersQuery, toAccount, toPublicUser, updateAccountSchema } from "../user.model";
 
 /**
- * There is nothing to unit-test in the model itself any more: ids and
- * timestamps come from Postgres (`@default(uuid())`, `@default(now())`,
- * `@updatedAt`), not from a factory function. What is left is the boundary -
- * what a client is allowed to send - and that is worth testing, because it is
- * the only thing standing between a request body and a write.
+ * The boundary: what a client is allowed to send, and what a row is allowed
+ * to become on the way out. Ids and timestamps come from Postgres, so there
+ * is no factory to test; these are the rules that stand between a request
+ * body and a write, and between a row and a response.
  */
-describe("createUserSchema", () => {
-	it("should validate correct input", () => {
-		const result = createUserSchema.safeParse({
-			email: "test@example.com",
-			name: "Test User",
+describe("registerSchema", () => {
+	it("normalises the address and keeps nothing it was not told about", () => {
+		const result = registerSchema.safeParse({
+			email: "  Someone@Example.COM ",
+			name: " Someone ",
+			password: "a-long-enough-password",
 		});
 
 		expect(result.success).toBe(true);
-	});
-
-	it("should reject invalid email", () => {
-		const result = createUserSchema.safeParse({
-			email: "invalid-email",
-			name: "Test User",
-		});
-
-		expect(result.success).toBe(false);
-	});
-
-	it("should reject empty name", () => {
-		const result = createUserSchema.safeParse({
-			email: "test@example.com",
-			name: "",
-		});
-
-		expect(result.success).toBe(false);
-	});
-
-	it("should drop database-owned fields", () => {
-		const result = createUserSchema.safeParse({
-			id: "00000000-0000-0000-0000-000000000000",
-			email: "test@example.com",
-			name: "Test User",
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		});
-
-		expect(result.success).toBe(true);
-		// validate() replaces req.body with the parsed value, so a client
-		// cannot choose its own id or backdate a row by sending one.
 		expect(result.data).toEqual({
-			email: "test@example.com",
-			name: "Test User",
+			email: "someone@example.com",
+			name: "Someone",
+			password: "a-long-enough-password",
 		});
 	});
-});
 
-describe("updateUserSchema", () => {
-	it("should accept a single field", () => {
-		const result = updateUserSchema.safeParse({ name: "New Name" });
-
-		expect(result.success).toBe(true);
-	});
-
-	it("should still reject an invalid email", () => {
-		const result = updateUserSchema.safeParse({ email: "nope" });
+	it("refuses a field the endpoint does not own", () => {
+		const result = registerSchema.safeParse({
+			email: "someone@example.com",
+			name: "Someone",
+			password: "a-long-enough-password",
+			id: "00000000-0000-0000-0000-000000000000",
+		});
 
 		expect(result.success).toBe(false);
 	});
+
+	it("bounds the password at both ends", () => {
+		expect(registerSchema.safeParse({ email: "a@b.co", name: "A", password: "123456789" }).success).toBe(false);
+		expect(registerSchema.safeParse({ email: "a@b.co", name: "A", password: "x".repeat(129) }).success).toBe(false);
+		expect(registerSchema.safeParse({ email: "a@b.co", name: "A", password: "x".repeat(128) }).success).toBe(true);
+	});
 });
 
-describe("userSchema", () => {
-	it("should describe a row the way Prisma returns it", () => {
-		const result = userSchema.safeParse({
-			id: "00000000-0000-0000-0000-000000000000",
-			email: "test@example.com",
-			name: "Test User",
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		});
+describe("loginSchema", () => {
+	it("accepts a password shorter than registration allows", () => {
+		// The floor could have been different when the account was made.
+		expect(loginSchema.safeParse({ email: "a@b.co", password: "short" }).success).toBe(true);
+	});
+});
 
-		expect(result.success).toBe(true);
+describe("updateAccountSchema", () => {
+	it("needs at least one field", () => {
+		expect(updateAccountSchema.safeParse({}).success).toBe(false);
+		expect(updateAccountSchema.safeParse({ name: "New" }).success).toBe(true);
+	});
+
+	it("still validates the address", () => {
+		expect(updateAccountSchema.safeParse({ email: "nope" }).success).toBe(false);
+	});
+});
+
+describe("listUsersQuery", () => {
+	it("defaults the page size and caps it", () => {
+		expect(listUsersQuery.parse({})).toEqual({ limit: 20 });
+		expect(listUsersQuery.parse({ limit: "100" })).toEqual({ limit: 100 });
+		expect(listUsersQuery.safeParse({ limit: "101" }).success).toBe(false);
+		expect(listUsersQuery.safeParse({ limit: "0" }).success).toBe(false);
+	});
+
+	it("refuses a cursor that is not an id", () => {
+		expect(listUsersQuery.safeParse({ cursor: "last-page" }).success).toBe(false);
+	});
+});
+
+describe("the projections", () => {
+	const row = {
+		id: "00000000-0000-0000-0000-000000000000",
+		email: "someone@example.com",
+		name: "Someone",
+		passwordHash: "$argon2id$v=19$m=1024,t=1,p=1$c2FsdA$aGFzaA",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+		updatedAt: new Date("2026-01-02T00:00:00Z"),
+	};
+
+	it("never carry the password hash", () => {
+		expect(toAccount(row)).toEqual({
+			id: row.id,
+			email: row.email,
+			name: row.name,
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+		});
+		expect(toPublicUser(row)).toEqual({ id: row.id, name: row.name, createdAt: row.createdAt });
 	});
 });

@@ -21,12 +21,13 @@ logs/
 *.log
 npm-debug.log*
 
-# Environment
-# .env.development (safe dev defaults) and .env.production.example (template)
-# are committed. Real production secrets live in .env.production, which is not.
+# Environment. Committed: .env.development (throwaway dev values),
+# .env.test (the suite's contract, nothing secret) and the production
+# template. Real production secrets live in .env.production, which is not.
 .env
 .env.*
 !.env.development
+!.env.test
 !.env.production.example
 
 # Caches

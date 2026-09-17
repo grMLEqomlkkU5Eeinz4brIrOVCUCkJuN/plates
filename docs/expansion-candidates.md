@@ -8,8 +8,8 @@ more useful, without adding a template. Everything below it adds surface area.
 
 ## The cost that governs all of this
 
-There are eight templates and they are near-copies. `express-ts/` alone is one stack ×
-three auth choices × two error-handling styles. Every orthogonal dimension you add as a
+There are eight templates and they are near-copies. `express-ts/` alone is one stack x
+three auth choices x two error-handling styles. Every orthogonal dimension you add as a
 *folder* multiplies that; every dimension you add as a *documented diff* does not.
 
 So the rule worth holding to:
@@ -29,7 +29,7 @@ These fix things a reader will notice on day one.
 | Candidate | Fills | Notes |
 | --- | --- | --- |
 | **[Drizzle](https://orm.drizzle.team) in `express-ts/`** | There is no database. `models/user.model.ts` is a zod schema plus in-memory helpers, so every template stops being useful at the exact moment a real service starts. | Biggest single gap in the repo. Use Drizzle rather than Prisma for consistency with `bevd/` - one ORM to document, and the schema-first mental model already appears in the other half of the repo. |
-| **[Prisma](https://www.prisma.io)** | The same gap, for the audience that will ask for it by name. | Only as a *second* variant, if Drizzle lands first and people still ask. Heavier: a codegen step, a query engine binary, and a Dockerfile that has to account for both. |
+| **[Prisma](https://www.prisma.io)** | The same gap, for the audience that will ask for it by name. | Landed first, as `express-ts/base-backend-jwt-prisma`, before the Drizzle variant did. Prisma 7 dropped the engine binary, which removed most of the weight this row used to warn about; what remains is the codegen step. A Drizzle sibling would share everything but `db/`, `services/` and the migrations. |
 | **[Kysely](https://kysely.dev)** | The same gap, for people who want a query builder and no ORM. | Cheapest of the three to document. Weakest pull. |
 | **[ioredis](https://github.com/redis/ioredis)** | `base-backend-lacewing` uses lacewing's `MemoryRevocationStore`: revoked tokens come back on restart, and never propagate to a second replica. That is a correctness bug the moment the service scales past one process. | Highest value-per-line in the list. A `RedisRevocationStore` is a small adapter, and it doubles as the lacewing demo that shows why the store is an interface. Also unlocks rate limiting and cache below. |
 | **[OpenTelemetry](https://opentelemetry.io/docs/languages/js/)** | The templates are for microservices and have no distributed tracing. Trace context is the thing that makes a *fleet* debuggable rather than a single service. | `@opentelemetry/sdk-node` + `auto-instrumentations-node` gets Express, HTTP and pg instrumented with roughly no code. Pair with Jaeger or Tempo in a `docker-compose.yml`. Strong candidate for the most "this is a microservice template" addition available. |

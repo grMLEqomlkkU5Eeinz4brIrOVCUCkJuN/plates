@@ -2,153 +2,115 @@ import { Router } from "express";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
+import { rateLimit } from "../../../middleware/rateLimit";
+import { loginSchema, registerSchema } from "../../../models/auth.model";
 import {
+	getCsrfToken,
 	login,
 	logout,
 	refresh,
-	getCsrfToken,
-	me,
-	loginSchema,
+	register,
 } from "../../../controllers/auth.controller";
 
 const router = Router();
 
 /**
- * @swagger
- * components:
- *   schemas:
- *     LoginRequest:
- *       type: object
- *       required:
- *         - email
- *         - password
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         password:
- *           type: string
- *           minLength: 1
- *     AuthResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *         message:
- *           type: string
- *         user:
- *           type: object
- *           properties:
- *             userId:
- *               type: string
- *             email:
- *               type: string
- *         csrfToken:
- *           type: string
- *     CsrfTokenResponse:
- *       type: object
- *       properties:
- *         csrfToken:
- *           type: string
+ * Every credential endpoint here is rate limited, login included: login is the
+ * endpoint an attacker makes progress against by repeating it, and limiting
+ * only password reset (the usual habit) is backwards. The limiter is
+ * in-process; see the caveat at the top of middleware/rateLimit.ts.
  */
 
 /**
  * @swagger
  * /auth/csrf-token:
  *   get:
- *     summary: Get CSRF token
- *     description: Returns a CSRF token for use in subsequent state-changing requests
+ *     summary: A CSRF token for the session in hand, or for an anonymous caller.
+ *     description: >
+ *       Login and register return one alongside the cookies, so this is only
+ *       needed after a page reload. Send it back as the x-csrf-token header on
+ *       every mutation.
  *     tags: [Auth]
  *     responses:
  *       200:
- *         description: CSRF token generated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/CsrfTokenResponse'
+ *         description: Token issued.
  */
 router.get("/csrf-token", getCsrfToken);
 
 /**
  * @swagger
- * /auth/login:
+ * /auth/register:
  *   post:
- *     summary: Login user
- *     description: Authenticates user and sets JWT cookies
+ *     summary: Create an account and open a session.
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
- *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *       201:
+ *         description: Account created; session cookies set; csrfToken in the body.
  *       400:
- *         description: Validation error
+ *         description: VALIDATION_ERROR.
+ *       409:
+ *         description: EMAIL_TAKEN.
+ *       429:
+ *         description: RATE_LIMITED.
  */
-router.post("/login", validate({ body: loginSchema }), login);
+router.post("/register", rateLimit("register"), validate({ body: registerSchema }), register);
 
 /**
  * @swagger
- * /auth/logout:
+ * /auth/login:
  *   post:
- *     summary: Logout user
- *     description: Clears JWT cookies
+ *     summary: Exchange email and password for session cookies.
  *     tags: [Auth]
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: header
- *         name: x-csrf-token
- *         required: true
- *         schema:
- *           type: string
  *     responses:
  *       200:
- *         description: Logout successful
+ *         description: Session opened; csrfToken in the body.
+ *       401:
+ *         description: INVALID_CREDENTIALS.
+ *       429:
+ *         description: RATE_LIMITED.
  */
-router.post("/logout", authenticate, doubleCsrfProtection, logout);
+router.post("/login", rateLimit("login"), validate({ body: loginSchema }), login);
 
 /**
  * @swagger
  * /auth/refresh:
  *   post:
- *     summary: Refresh tokens
- *     description: Uses refresh token to generate new access and refresh tokens
+ *     summary: Rotate the refresh cookie for a new pair.
+ *     description: >
+ *       Refresh tokens are single use. Presenting one twice revokes the whole
+ *       family and answers REFRESH_REUSED; either way the cookies are cleared
+ *       on failure.
  *     tags: [Auth]
  *     responses:
  *       200:
- *         description: Tokens refreshed
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *         description: New cookies set; csrfToken in the body.
  *       401:
- *         description: Invalid or expired refresh token
+ *         description: REFRESH_INVALID or REFRESH_REUSED.
  */
-router.post("/refresh", refresh);
+router.post("/refresh", rateLimit("refresh"), refresh);
+
+// Everything below this line requires a valid access cookie. Adding a public
+// route means adding it above the line, where it is visible.
+router.use(authenticate);
 
 /**
  * @swagger
- * /auth/me:
- *   get:
- *     summary: Get current user
- *     description: Returns the authenticated user's information
+ * /auth/logout:
+ *   post:
+ *     summary: Revoke this session and expire its cookies.
+ *     description: >
+ *       The access token itself stays valid until it expires, which is at most
+ *       JWT_ACCESS_EXPIRY away; the refresh chain is dead immediately.
  *     tags: [Auth]
- *     security:
- *       - cookieAuth: []
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - { in: header, name: x-csrf-token, required: true, schema: { type: string } }
  *     responses:
- *       200:
- *         description: User information
- *       401:
- *         description: Not authenticated
+ *       204:
+ *         description: Session revoked.
+ *       403:
+ *         description: CSRF_INVALID.
  */
-router.get("/me", authenticate, me);
+router.post("/logout", doubleCsrfProtection, logout);
 
 export default router;

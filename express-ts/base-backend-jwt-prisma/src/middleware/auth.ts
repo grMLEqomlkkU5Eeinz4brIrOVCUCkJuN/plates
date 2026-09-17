@@ -1,43 +1,24 @@
 import { Request, Response, NextFunction, CookieOptions } from "express";
-import jwt from "jsonwebtoken";
 import { env } from "../config/env";
-import { durationToSeconds } from "../utils/helpers";
-import { createError } from "./errorHandler";
+import { httpError } from "./errorHandler";
+import {
+	ACCESS_TTL_SECONDS,
+	REFRESH_TTL_SECONDS,
+	verifyAccessToken,
+} from "../services/token.service";
 
-export interface JwtPayload {
+export interface AuthContext {
 	userId: string;
-	email: string;
-	iat?: number;
-	exp?: number;
+	/** The refresh-token family this access token was minted for. */
+	sessionId: string;
 }
 
-export const generateAccessToken = (
-	payload: Omit<JwtPayload, "iat" | "exp">
-): string =>
-	jwt.sign(payload, env.JWT_SECRET, {
-		expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"],
-	});
-
-export const generateRefreshToken = (
-	payload: Omit<JwtPayload, "iat" | "exp">
-): string =>
-	jwt.sign(payload, env.JWT_REFRESH_SECRET, {
-		expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"],
-	});
-
-export const verifyAccessToken = (token: string): JwtPayload =>
-	jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-
-export const verifyRefreshToken = (token: string): JwtPayload =>
-	jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
-
 // Derived from the token lifetimes rather than restated, so a cookie cannot be
-// discarded while the token it carries is still valid - which is what a
-// hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY and
-// not this line. res.cookie wants milliseconds; the tokens are configured in
-// duration strings.
-const ACCESS_MAX_AGE_MS = durationToSeconds(env.JWT_ACCESS_EXPIRY) * 1000;
-const REFRESH_MAX_AGE_MS = durationToSeconds(env.JWT_REFRESH_EXPIRY) * 1000;
+// discarded while the token it carries is still valid, which is what a
+// hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY
+// and not this line. res.cookie wants milliseconds.
+const ACCESS_MAX_AGE_MS = ACCESS_TTL_SECONDS * 1000;
+const REFRESH_MAX_AGE_MS = REFRESH_TTL_SECONDS * 1000;
 
 // A cookie is identified by name, domain and path together, so clearAuthCookies
 // has to name the domain setAuthCookies used or the browser keeps the cookie and
@@ -52,6 +33,10 @@ const cookieOptions = {
 export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 
+/** The refresh cookie travels only to the endpoint that spends it, so a
+ *  stolen page on any other path never sees the long-lived credential. */
+const REFRESH_COOKIE_PATH = "/api/v1/auth/refresh";
+
 /**
  * Nothing settles whether the first or the last `access_token=` wins when a
  * header carries two, so a parser that picks one is guessing, and cookie-parser
@@ -65,7 +50,7 @@ export const REFRESH_COOKIE = "refresh_token";
  * COOKIE_DOMAIN makes this reachable by design, because a cookie scoped to a
  * parent is one every subdomain under it can also write.
  */
-export const readAccessCookie = (req: Request): string | undefined => {
+const readAccessCookie = (req: Request): string | undefined => {
 	const header = req.headers.cookie;
 
 	if (!header) return undefined;
@@ -97,7 +82,7 @@ export const setAuthCookies = (
 	res.cookie(REFRESH_COOKIE, refreshToken, {
 		...cookieOptions,
 		maxAge: REFRESH_MAX_AGE_MS,
-		path: "/api/v1/auth/refresh",
+		path: REFRESH_COOKIE_PATH,
 	});
 };
 
@@ -105,10 +90,19 @@ export const clearAuthCookies = (res: Response): void => {
 	res.clearCookie(ACCESS_COOKIE, cookieOptions);
 	res.clearCookie(REFRESH_COOKIE, {
 		...cookieOptions,
-		path: "/api/v1/auth/refresh",
+		path: REFRESH_COOKIE_PATH,
 	});
 };
 
+/**
+ * Verifies the access cookie and nothing else.
+ *
+ * There is no database read on this path: it is the cost every
+ * authenticated request pays. What that gives up is instant revocation, and
+ * the fifteen-minute lifetime plus the refresh-time checks in auth.service are
+ * what pay for it. A handler that cannot wait fifteen minutes (closing the
+ * account, say) reads the row itself through user.service.
+ */
 export const authenticate = (
 	req: Request,
 	_res: Response,
@@ -116,34 +110,20 @@ export const authenticate = (
 ): void => {
 	const token = readAccessCookie(req);
 
-	if (!token) throw createError(401, "Access token required");
-
-	try {
-		req.user = verifyAccessToken(token);
-		next();
-	} catch (error) {
-		if (error instanceof jwt.TokenExpiredError)
-			throw createError(401, "Access token expired");
-		if (error instanceof jwt.JsonWebTokenError)
-			throw createError(401, "Invalid access token");
-		throw error;
+	if (!token) {
+		throw httpError(401, "Sign in to do that.", { errorCode: "UNAUTHENTICATED" });
 	}
+
+	const claims = verifyAccessToken(token);
+
+	req.auth = { userId: claims.sub, sessionId: claims.sid };
+	next();
 };
 
-export const optionalAuth = (
-	req: Request,
-	_res: Response,
-	next: NextFunction
-): void => {
-	const token = readAccessCookie(req);
-
-	if (token) {
-		try {
-			req.user = verifyAccessToken(token);
-		} catch {
-			// Token invalid or expired, continue without user
-		}
+/** The identity for the current request, once authenticate has run. */
+export const authOf = (req: Request): AuthContext => {
+	if (!req.auth) {
+		throw new Error("authenticate must run before the handler that reads req.auth.");
 	}
-
-	next();
+	return req.auth;
 };

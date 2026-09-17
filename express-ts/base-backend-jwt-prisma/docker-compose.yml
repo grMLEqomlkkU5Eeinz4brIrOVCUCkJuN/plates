@@ -1,8 +1,10 @@
-# The database `npm run dev` expects. `docker compose up -d db`, then
-# `npm run db:migrate` to create the tables.
+# The database `npm run dev` and `npm test` expect. `docker compose up -d db`,
+# then `npm run db:migrate` to create the tables.
 #
-# Development only - nothing here is tuned or secured for anything else, and the
-# credentials match the throwaway ones committed in .env.development.
+# Development only: nothing here is tuned or secured for anything else, and the
+# credentials match the throwaway ones committed in .env.development. The
+# application image is built from the Dockerfile and runs against a managed
+# database, so it is not in this file.
 services:
   db:
     image: postgres:17-alpine
@@ -13,9 +15,15 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: jwt_prisma_backend
     ports:
-      - "5432:5432"
+      # Overridable, because a developer box that already runs a Postgres for
+      # something else has 5432 taken and the failure is a container that
+      # will not start.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # The suite runs against its own database so that a test run cannot
+      # truncate the one you were working in. Runs only on a fresh volume.
+      - ./scripts/create-test-database.sql:/docker-entrypoint-initdb.d/10-test-database.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d jwt_prisma_backend"]
       interval: 5s

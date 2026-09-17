@@ -20,11 +20,37 @@ datasource db {
 }
 
 model User {
-	id        String   @id @default(uuid()) @db.Uuid
-	email     String   @unique
-	name      String
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
+	id           String   @id @default(uuid()) @db.Uuid
+	email        String   @unique
+	name         String
+	// argon2id. Never selected into a response; models/user.model.ts is the
+	// only place a row becomes a body, and it does not copy this field.
+	passwordHash String   @map("password_hash")
+	createdAt    DateTime @default(now()) @map("created_at")
+	updatedAt    DateTime @updatedAt @map("updated_at")
+
+	refreshTokens RefreshToken[]
 
 	@@map("users")
+}
+
+// One row per refresh token ever issued. A login opens a family; each refresh
+// spends the current token (usedAt) and adds the next one to the same family;
+// logout revokes the whole family. The token itself is never stored, only its
+// SHA-256, so a leaked table cannot be replayed.
+model RefreshToken {
+	id        String    @id @default(uuid()) @db.Uuid
+	userId    String    @map("user_id") @db.Uuid
+	familyId  String    @map("family_id") @db.Uuid
+	tokenHash String    @unique @map("token_hash")
+	expiresAt DateTime  @map("expires_at")
+	usedAt    DateTime? @map("used_at")
+	revokedAt DateTime? @map("revoked_at")
+	createdAt DateTime  @default(now()) @map("created_at")
+
+	user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([familyId])
+	@@index([userId])
+	@@map("refresh_tokens")
 }

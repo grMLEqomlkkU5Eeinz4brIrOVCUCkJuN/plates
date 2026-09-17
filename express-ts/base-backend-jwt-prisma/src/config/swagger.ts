@@ -7,14 +7,19 @@ const options: swaggerJsdoc.Options = {
 		info: {
 			title: env.SERVICE_NAME,
 			version: "1.0.0",
-			description: "API documentation",
+			description:
+				"Errors are one shape everywhere: { success: false, code, message, requestId }. `code` is the value to branch on; the list is ErrorCode in src/middleware/errorHandler.ts.",
 		},
-		servers: [
-			{
-				url: `/api/v1`,
-				description: "API v1",
+		servers: [{ url: "/api/v1", description: "API v1" }],
+		components: {
+			securitySchemes: {
+				cookieAuth: {
+					type: "apiKey",
+					in: "cookie",
+					name: "access_token",
+				},
 			},
-		],
+		},
 	},
 	apis: ["./src/routes/api/v1/*.routes.ts"],
 };

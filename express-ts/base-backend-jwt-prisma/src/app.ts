@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
 import { env } from "./config/env";
+import { requestId } from "./middleware/requestId";
 import { httpLogger } from "./middleware/httpLogger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import routes from "./routes";
@@ -12,7 +13,16 @@ import routes from "./routes";
 export const createApp = (): Express => {
 	const app = express();
 
-	// Security middleware
+	// req.ip comes from this. Left at the default behind a proxy, the rate
+	// limiter buckets every client under the proxy's address and csrf.ts
+	// gives every anonymous caller one shared session; set to `true`, any
+	// client can forge its own address. env.ts refuses `true` in production.
+	app.set("trust proxy", env.TRUST_PROXY);
+
+	// Nothing here renders HTML, so there is no view state to protect.
+	// Express's fingerprint header is still free to remove.
+	app.disable("x-powered-by");
+
 	app.use(
 		helmet({
 			contentSecurityPolicy: env.NODE_ENV === "production",
@@ -28,24 +38,29 @@ export const createApp = (): Express => {
 		})
 	);
 
-	// Cookie parsing
-	app.use(cookieParser(env.COOKIE_SECRET));
+	app.use(requestId);
 
-	// Body parsing
-	app.use(express.json());
-	app.use(express.urlencoded({ extended: true }));
+	// req.cookies is what csrf-csrf reads its cookie from. The access cookie
+	// is read from the raw header instead (middleware/auth.ts), because
+	// cookie-parser picks the first of two same-named cookies and that guess
+	// is the one an attacker would arrange.
+	app.use(cookieParser());
 
-	// HTTP logging
+	// JSON only. Every client of this API posts JSON, so an urlencoded parser
+	// would only widen what an unwritten endpoint accepts.
+	app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
+
 	app.use(httpLogger);
 
-	// API documentation
-	app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-	app.get("/docs.json", (_req, res) => res.json(swaggerSpec));
+	// The schema browser is a development tool, not a product surface: in
+	// production it publishes the route list to anyone who finds it.
+	if (env.NODE_ENV !== "production") {
+		app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+		app.get("/docs.json", (_req, res) => res.json(swaggerSpec));
+	}
 
-	// Routes (handles /api/v1, etc.)
 	app.use(routes);
 
-	// Error handling
 	app.use(notFoundHandler);
 	app.use(errorHandler);
 

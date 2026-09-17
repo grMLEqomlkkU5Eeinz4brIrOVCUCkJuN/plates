@@ -1,99 +1,79 @@
 import { Request, Response } from "express";
-import { z } from "zod";
 import {
-	generateAccessToken,
-	generateRefreshToken,
-	verifyRefreshToken,
-	setAuthCookies,
+	ACCESS_COOKIE,
+	REFRESH_COOKIE,
+	authOf,
 	clearAuthCookies,
+	setAuthCookies,
 } from "../middleware/auth";
 import { clearCsrfCookie, generateToken } from "../middleware/csrf";
-import { createError } from "../middleware/errorHandler";
+import { httpError } from "../middleware/errorHandler";
+import {
+	loginAccount,
+	refreshSession,
+	registerAccount,
+	revokeSession,
+	type SessionTokens,
+} from "../services/auth.service";
+import type { LoginInput, RegisterInput } from "../models/auth.model";
 
-export const loginSchema = z.object({
-	email: z.email("Invalid email format"),
-	password: z.string().min(1, "Password is required"),
-});
+/**
+ * Puts a session on the response: both cookies, and a CSRF token bound to the
+ * new access token. The CSRF token is HMAC'd against the access_token cookie
+ * (middleware/csrf.ts), and that cookie is only being set on this response,
+ * not present on the request, so req.cookies is pointed at the token this
+ * response just minted. Without that the token is bound to req.ip and every
+ * mutation afterwards fails with a 403.
+ */
+const startSession = (req: Request, res: Response, tokens: SessionTokens): string => {
+	setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+	req.cookies = { ...req.cookies, [ACCESS_COOKIE]: tokens.accessToken };
 
-export type LoginData = z.infer<typeof loginSchema>;
-
-export const login = (req: Request, res: Response): void => {
-	const { email } = req.body as LoginData;
-
-	// TODO: Replace with actual user authentication logic
-	// This is a placeholder - in production, verify credentials against your database
-	const userId = "user-" + Math.random().toString(36).substring(2, 9);
-
-	const tokenPayload = { userId, email };
-	const accessToken = generateAccessToken(tokenPayload);
-	const refreshToken = generateRefreshToken(tokenPayload);
-
-	setAuthCookies(res, accessToken, refreshToken);
-
-	// The CSRF token is bound to the access_token cookie (see
-	// middleware/csrf.ts). That cookie is only being set on this response,
-	// not present on the incoming request, so point the binding at the
-	// token this response just minted - otherwise the token is bound to
-	// req.ip and fails validation on every subsequent request.
-	req.cookies = { ...req.cookies, access_token: accessToken };
-
-	res.json({
-		success: true,
-		message: "Login successful",
-		user: { userId, email },
-		csrfToken: generateToken(req, res),
-	});
+	return generateToken(req, res);
 };
 
-export const logout = (_req: Request, res: Response): void => {
-	clearAuthCookies(res);
-	clearCsrfCookie(res);
+export const register = async (req: Request, res: Response): Promise<void> => {
+	const { user, tokens } = await registerAccount(req.body as RegisterInput);
 
-	res.json({
-		success: true,
-		message: "Logout successful",
-	});
+	res.status(201).json({ user, csrfToken: startSession(req, res, tokens) });
 };
 
-export const refresh = (req: Request, res: Response): void => {
-	const refreshToken = req.cookies?.refresh_token;
+export const login = async (req: Request, res: Response): Promise<void> => {
+	const { user, tokens } = await loginAccount(req.body as LoginInput);
 
-	if (!refreshToken) {
-		throw createError(401, "Refresh token required");
+	res.json({ user, csrfToken: startSession(req, res, tokens) });
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+	const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+
+	if (!token) {
+		throw httpError(401, "Refresh token is required.", { errorCode: "REFRESH_INVALID" });
 	}
 
 	try {
-		const payload = verifyRefreshToken(refreshToken);
-		const tokenPayload = { userId: payload.userId, email: payload.email };
+		const tokens = await refreshSession(token);
 
-		const newAccessToken = generateAccessToken(tokenPayload);
-		const newRefreshToken = generateRefreshToken(tokenPayload);
-
-		setAuthCookies(res, newAccessToken, newRefreshToken);
-
-		// Rebind the CSRF token to the rotated session, as in login.
-		req.cookies = { ...req.cookies, access_token: newAccessToken };
-
-		res.json({
-			success: true,
-			message: "Tokens refreshed",
-			csrfToken: generateToken(req, res),
-		});
-	} catch {
+		res.json({ csrfToken: startSession(req, res, tokens) });
+	} catch (error) {
+		// Whatever the reason, the cookies in hand are dead; leaving them on
+		// the browser would have every subsequent request fail the same way.
 		clearAuthCookies(res);
-		throw createError(401, "Invalid or expired refresh token");
+		clearCsrfCookie(res);
+		throw error;
 	}
 };
 
-export const getCsrfToken = (req: Request, res: Response): void => {
-	res.json({
-		csrfToken: generateToken(req, res),
-	});
+/** 204 and the session is over: its refresh-token family is revoked and the
+ *  cookies are expired. The access token stays valid until it expires. */
+export const logout = async (req: Request, res: Response): Promise<void> => {
+	await revokeSession(authOf(req).sessionId);
+
+	clearAuthCookies(res);
+	clearCsrfCookie(res);
+	res.status(204).send();
 };
 
-export const me = (req: Request, res: Response): void => {
-	res.json({
-		success: true,
-		user: req.user,
-	});
+export const getCsrfToken = (req: Request, res: Response): void => {
+	res.json({ csrfToken: generateToken(req, res) });
 };

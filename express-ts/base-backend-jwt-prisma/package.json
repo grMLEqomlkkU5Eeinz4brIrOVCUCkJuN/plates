@@ -1,14 +1,14 @@
 {
 	"name": "jwt-prisma-backend",
 	"version": "1.0.0",
-	"main": "index.js",
+	"main": "dist/main.js",
 	"scripts": {
 		"dev": "node --watch --env-file-if-exists=.env.development --import tsx ./src/main.ts",
 		"build": "tsc -p tsconfig.build.json",
 		"start": "node --env-file-if-exists=.env.production dist/main.js",
-		"test": "jest",
-		"test:watch": "jest --watch",
-		"test:coverage": "jest --coverage",
+		"test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+		"test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+		"test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
 		"db:generate": "prisma generate",
 		"db:migrate": "prisma migrate dev",
 		"db:deploy": "prisma migrate deploy",
@@ -20,13 +20,12 @@
 		"postinstall": "prisma generate",
 		"typecheck": "tsc --noEmit"
 	},
-	"keywords": [],
-	"author": "",
 	"license": "ISC",
-	"description": "",
+	"description": "Express + TypeScript service template: JWT cookies, CSRF, Prisma on Postgres",
 	"dependencies": {
 		"@prisma/adapter-pg": "^7.10.0",
 		"@prisma/client": "^7.10.0",
+		"argon2": "^0.45.1",
 		"cookie-parser": "^1.4.7",
 		"cors": "^2.8.6",
 		"csrf-csrf": "^4.0.3",
@@ -72,5 +71,13 @@
 	},
 	"engines": {
 		"node": ">=24.0.0"
+	},
+	"allowScripts": {
+		"argon2@0.45.1": true,
+		"esbuild@0.28.1": true,
+		"@prisma/engines@7.10.0": true,
+		"prisma@7.10.0": true,
+		"lefthook@2.1.10": true,
+		"unrs-resolver@1.12.2": true
 	}
 }

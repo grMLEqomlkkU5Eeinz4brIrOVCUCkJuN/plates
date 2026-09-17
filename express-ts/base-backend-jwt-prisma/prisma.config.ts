@@ -5,14 +5,12 @@ import { defineConfig } from "prisma/config";
  * Prisma 7 does not read .env files, and this template does not carry dotenv:
  * `npm run dev` and `npm start` hand the file to Node itself with
  * `--env-file-if-exists`. The CLI gets the same treatment here through Node's
- * own loader, so `npx prisma migrate dev` sees the same DATABASE_URL the app
- * does. A real environment variable still wins - loadEnvFile does not overwrite
- * what is already set.
+ * own loader, keyed on NODE_ENV the same way, so `npx prisma migrate dev` sees
+ * the DATABASE_URL the app does and `NODE_ENV=test npx prisma migrate deploy`
+ * migrates the database the suite runs against. A real environment variable
+ * still wins: loadEnvFile does not overwrite what is already set.
  */
-const envFile =
-	process.env.NODE_ENV === "production"
-		? ".env.production"
-		: ".env.development";
+const envFile = `.env.${process.env.NODE_ENV ?? "development"}`;
 
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 

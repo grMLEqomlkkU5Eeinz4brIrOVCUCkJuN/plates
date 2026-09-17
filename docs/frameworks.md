@@ -13,6 +13,7 @@ list of things you could add.
 | --- | --- |
 | An HTTP service, nothing else | `express-ts/base-backend` |
 | An HTTP service with login | `express-ts/base-backend-jwt` or `-lacewing` |
+| An HTTP service with login and a database | `express-ts/base-backend-jwt-prisma` |
 | Three transports over one set of services | `bevd/base` |
 | A frontend in the same repo | any `bevd/` template |
 
@@ -43,6 +44,14 @@ Auth templates add:
 | Tokens (`-lacewing`) | [lacewing](https://github.com/Smiduweorc/lacewing) | RFC 8725 defaults you cannot switch off: pinned algorithms, `typ` split between access and refresh, entropy-checked secrets, revocation, hardened cookies. |
 | CSRF | [csrf-csrf](https://github.com/Psifi-Solutions/csrf-csrf) | Double-submit, which is the pattern that survives cookie-based auth. |
 | Cookies | [cookie-parser](https://github.com/expressjs/cookie-parser) | Signed cookie parsing. `-lacewing` issues cookies through lacewing instead. |
+
+`base-backend-jwt-prisma` adds:
+
+| Layer | Choice | Why this one |
+| --- | --- | --- |
+| Database | [Prisma](https://www.prisma.io) 7 + Postgres, over [@prisma/adapter-pg](https://www.prisma.io/docs/orm/overview/databases/postgresql) | The one people ask for by name. Prisma 7 has no engine binary; the pool is node-postgres' and its timeouts are named in `config/env.ts`. Every query lives in `services/`. |
+| Passwords | [argon2](https://github.com/ranisalt/node-argon2) | argon2id at the OWASP floor, cost read from the environment so the suite can turn it down. Prebuilt binaries, no toolchain. |
+| Refresh tokens | 256 random bits, SHA-256 in a `refresh_tokens` row | Rotated on every refresh, single use by conditional update, whole family revoked on reuse. Nothing to verify without the row, which is the point. |
 
 ### `bevd/` - Bun + Elysia
 
@@ -98,8 +107,8 @@ Commits, `.editorconfig` - is the same on both sides.
 
 ## Not here, on purpose
 
-No queue, no cache, no ORM in the `express-ts/` templates, no auth provider SDK, no
-Kubernetes manifests, no Terraform. These are the pieces where the right answer depends
+No queue, no cache, no ORM in the `express-ts/` templates except the one
+`-prisma` variant, no auth provider SDK, no Kubernetes manifests, no Terraform. These are the pieces where the right answer depends
 entirely on what you are building and what you already run, and a template that guesses
 wrong costs more than one that stays quiet. Add them in your own repo, after you have
 grabbed the template.

@@ -1,34 +1,79 @@
 import { Request, Response, NextFunction } from "express";
 import createError, { HttpError } from "http-errors";
 import { env } from "../config/env";
-import { Prisma } from "../generated/prisma/client";
 import logger from "../utils/logger";
 
-export { createError, HttpError };
+export { HttpError };
 
 /**
- * The Prisma errors that are a client's fault rather than the server's. Anything
- * not listed stays a 500, which is the honest answer for a connection failure or
- * a schema that does not match the database.
- *
- * The message is ours, not Prisma's: `err.message` carries the model name, the
- * failing constraint and often the offending value, and none of that belongs in
- * a response body. The original still reaches the log below.
+ * The codes clients branch on. The HTTP status says how to react in general,
+ * the code says which failure it was, and the message is for a human reading
+ * a log or a debug console. Adding a case here is how a new failure becomes
+ * part of the contract; throwing a bare status is how it stays undocumented.
  */
-const PRISMA_ERRORS: Record<string, [status: number, message: string]> = {
-	P2000: [400, "Value too long for the field"],
-	P2002: [409, "A record with that value already exists"],
-	P2003: [409, "Related record required"],
-	P2011: [400, "Missing required field"],
-	P2025: [404, "Record not found"],
-};
+export type ErrorCode =
+	| "VALIDATION_ERROR"
+	| "MALFORMED_BODY"
+	| "PAYLOAD_TOO_LARGE"
+	| "UNAUTHENTICATED"
+	| "TOKEN_INVALID"
+	| "TOKEN_EXPIRED"
+	| "INVALID_CREDENTIALS"
+	| "EMAIL_TAKEN"
+	| "REFRESH_INVALID"
+	| "REFRESH_REUSED"
+	| "CSRF_INVALID"
+	| "NOT_FOUND"
+	| "RATE_LIMITED"
+	| "DEPENDENCY_UNAVAILABLE"
+	| "INTERNAL";
 
-const fromPrisma = (err: Error): HttpError | undefined => {
-	if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
+interface ErrorOptions {
+	/**
+	 * Not named `code`: Node puts its own errno strings there
+	 * (ENOENT, ECONNREFUSED), csrf-csrf puts EBADCSRFTOKEN there, and this
+	 * value is serialised to clients.
+	 */
+	errorCode: ErrorCode;
+	/** Field-level detail for VALIDATION_ERROR. Never internals. */
+	details?: unknown;
+	/** Extra context for the log line only; never serialised to the client. */
+	logContext?: Record<string, unknown>;
+	/**
+	 * http-errors hides the message of anything 5xx, on the assumption that
+	 * it is a stack trace's first line. A 503 raised by this code, naming the
+	 * dependency that is down, is written for the client and is safe to send.
+	 */
+	expose?: boolean;
+}
 
-	const mapped = PRISMA_ERRORS[err.code];
+interface TaggedError {
+	errorCode?: ErrorCode;
+	details?: unknown;
+	logContext?: Record<string, unknown>;
+	/** Node-style discriminant: csrf-csrf's EBADCSRFTOKEN. */
+	code?: string;
+	/** body-parser's discriminant: entity.too.large, entity.parse.failed, ... */
+	type?: string;
+}
 
-	return mapped ? createError(mapped[0], mapped[1]) : undefined;
+export const httpError = (
+	status: number,
+	message: string,
+	options: ErrorOptions
+): HttpError => createError(status, message, options);
+
+const codeOf = (err: TaggedError, status: number, isHttpError: boolean): ErrorCode => {
+	if (err.errorCode) return err.errorCode;
+
+	// Everything below is an error we did not raise ourselves. body-parser is
+	// the one that arrives here routinely: a client sent 2 MB of JSON, or sent
+	// something that is not JSON at all. csrf-csrf is the other.
+	if (err.type === "entity.too.large") return "PAYLOAD_TOO_LARGE";
+	if (err.type) return "MALFORMED_BODY";
+	if (err.code === "EBADCSRFTOKEN") return "CSRF_INVALID";
+	if (!isHttpError || status >= 500) return "INTERNAL";
+	return status === 404 ? "NOT_FOUND" : "VALIDATION_ERROR";
 };
 
 export const errorHandler = (
@@ -37,28 +82,38 @@ export const errorHandler = (
 	res: Response,
 	_next: NextFunction
 ): void => {
-	const error = fromPrisma(err) ?? err;
-	const isHttpError = error instanceof HttpError;
-	const statusCode = isHttpError ? error.statusCode : 500;
-	const expose = isHttpError ? error.expose : false;
+	// Duck-typed, not instanceof: body-parser hands the SyntaxError from
+	// JSON.parse to createError, which decorates that error with a status
+	// rather than constructing an HttpError, so an instanceof check would turn
+	// "you sent something that is not JSON" into a 500.
+	const isHttpError = createError.isHttpError(err);
+	const statusCode = isHttpError ? err.statusCode : 500;
 
-	logger.error(err.message, {
+	// An HttpError we raised is a decision about what the client should see.
+	// Anything else reached here uncaught, so it says nothing safe.
+	const expose = isHttpError && err.expose;
+	const tagged = err as Error & TaggedError;
+	const code = codeOf(tagged, statusCode, isHttpError);
+
+	logger.log(statusCode >= 500 ? "error" : "warn", err.message, {
+		requestId: req.requestId,
+		errorCode: code,
 		statusCode,
-		stack: err.stack,
-		path: req.path,
 		method: req.method,
-		expose,
-		// Present only when Prisma raised this, and the first thing worth
-		// knowing when a 500 turns out to be a database error.
-		...(err instanceof Prisma.PrismaClientKnownRequestError && {
-			prismaCode: err.code,
-		}),
+		path: req.path,
+		ip: req.ip,
+		userId: req.auth?.userId,
+		...tagged.logContext,
+		...(statusCode >= 500 && { stack: err.stack }),
 	});
 
 	res.status(statusCode).json({
 		success: false,
-		message: expose ? error.message : "Internal server error",
-		...(env.NODE_ENV === "development" && { stack: err.stack }),
+		code,
+		message: expose ? err.message : "Internal server error",
+		requestId: req.requestId,
+		...(expose && tagged.details !== undefined && { details: tagged.details }),
+		...(env.NODE_ENV === "development" && statusCode >= 500 && { stack: err.stack }),
 	});
 };
 
@@ -67,5 +122,9 @@ export const notFoundHandler = (
 	_res: Response,
 	next: NextFunction
 ): void => {
-	next(createError(404, `Route not found: ${req.method} ${req.path}`));
+	next(
+		httpError(404, `Route not found: ${req.method} ${req.path}`, {
+			errorCode: "NOT_FOUND",
+		})
+	);
 };

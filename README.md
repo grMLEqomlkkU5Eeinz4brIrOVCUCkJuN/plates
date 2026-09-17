@@ -32,6 +32,7 @@ and frontend, and why each piece is there - read it if you are choosing between 
 | `express-ts/back-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Uses `asyncHandler`. |
 | `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
 | `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |
+| `express-ts/base-backend-jwt-prisma`| JWT (cookies + CSRF), real accounts | The only `express-ts` template with a database: Postgres through Prisma 7, argon2id passwords, rotated refresh tokens with reuse detection, a service layer that owns every query, tests against a real Postgres. Start here if you need persistence. |
 
 These share the config in [`standard/`](./standard) - ESLint, TypeScript,
 `.editorconfig`, lefthook, CI. See that folder's README before changing any of it.
@@ -92,8 +93,14 @@ dev-only values (the JWT templates' secrets included), so `npm run dev` works
 straight after `npm install`. For production, `cp .env.production.example
 .env.production` and fill it in - `npm start` loads that file.
 
+`base-backend-jwt-prisma` also needs a Postgres: `docker compose up -d db` then
+`npm run db:migrate`, for `npm run dev` and for `npm test` alike. Its README
+says what else is different.
+
 The JWT templates need `JWT_SECRET`, `JWT_REFRESH_SECRET`, `COOKIE_SECRET` and
-`CSRF_SECRET`, each at least 32 characters. For `base-backend-lacewing` they must
+`CSRF_SECRET`, each at least 32 characters (`base-backend-jwt-prisma` needs only
+`JWT_SECRET` and `CSRF_SECRET`; its refresh tokens are database rows, not JWTs,
+and nothing signs a cookie). For `base-backend-lacewing` they must
 also be actually random - lacewing entropy-checks them at boot - so run
 `npm run secrets` and paste the output into `.env.production`.
 
