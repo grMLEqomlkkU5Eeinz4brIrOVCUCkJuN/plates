@@ -107,7 +107,7 @@ decision; changing either alone reopens the hole.
 **Writes are guarded by a version column.** Send `If-Match: "<etag>"` on an
 update to be told 412 when someone else has moved the row since you read it.
 Two updates that race past that check are still separated at the database and
-the loser gets 409. `UserConcurrencyTest` is the proof.
+the loser gets 409. `UserControllerConcurrencyTest` is the proof.
 
 **Health is split.** Readiness includes the database, liveness does not. A
 Postgres outage should take instances out of the load balancer, not restart
