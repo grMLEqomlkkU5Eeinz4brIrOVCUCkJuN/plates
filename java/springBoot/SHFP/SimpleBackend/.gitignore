@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local secrets for compose. Never commit the filled in copy.
+.env
