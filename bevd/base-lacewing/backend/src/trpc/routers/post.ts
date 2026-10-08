@@ -1,12 +1,9 @@
+import { CreatePostInput, ListPostsInput, PostIdInput, UpdatePostInput } from "../../models/post";
 import {
-	CreatePostInput,
 	createPost,
 	deletePost,
 	getPost,
-	ListPostsInput,
 	listPosts,
-	PostIdInput,
-	UpdatePostInput,
 	updatePost,
 } from "../../services/post.service";
 import { protectedProcedure, publicProcedure, router } from "../trpc";

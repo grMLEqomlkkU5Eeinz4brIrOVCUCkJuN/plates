@@ -1,18 +1,8 @@
 import { Elysia, ValidationError } from "elysia";
 import { requestContext } from "../http/request";
-import { AppError, type ErrorCode } from "../lib/errors";
+import { AppError, HTTP_STATUS } from "../lib/errors";
 import { type Logger, requestIdFrom } from "../lib/logger";
 import type { ErrorBody } from "../openapi/schemas";
-
-/** The same statuses tRPC answers with for the same AppError, so the two never disagree. */
-export const HTTP_STATUS: Record<ErrorCode, number> = {
-	BAD_REQUEST: 400,
-	UNAUTHORIZED: 401,
-	FORBIDDEN: 403,
-	NOT_FOUND: 404,
-	CONFLICT: 409,
-	INTERNAL: 500,
-};
 
 /**
  * One error body for every REST failure, `{ error: { code, message, requestId } }`. An

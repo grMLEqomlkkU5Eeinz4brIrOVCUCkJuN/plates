@@ -6,8 +6,7 @@ import { requestContext } from "../http/request";
 import { AppError } from "../lib/errors";
 import type { ServiceCtx } from "../services/context";
 import { restErrors } from "./errors";
-
-export const REST_PREFIX = "/api/v1";
+import { REST_PREFIX } from "./prefix";
 
 /**
  * REST twins of a few tRPC procedures, for callers that will not speak tRPC: curl, another

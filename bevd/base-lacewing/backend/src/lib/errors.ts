@@ -19,6 +19,19 @@ export type ErrorCode =
 	| "CONFLICT"
 	| "INTERNAL";
 
+/**
+ * The HTTP status the REST twins answer each code with: the same ones tRPC uses for the
+ * same AppError, so the two never disagree. See rest/errors.ts.
+ */
+export const HTTP_STATUS: Record<ErrorCode, number> = {
+	BAD_REQUEST: 400,
+	UNAUTHORIZED: 401,
+	FORBIDDEN: 403,
+	NOT_FOUND: 404,
+	CONFLICT: 409,
+	INTERNAL: 500,
+};
+
 export class AppError extends Error {
 	readonly code: ErrorCode;
 

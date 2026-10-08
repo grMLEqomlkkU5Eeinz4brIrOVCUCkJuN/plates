@@ -1,5 +1,5 @@
-import { REST_PREFIX } from "../../rest";
-import { CreatePostInput, ListPostsInput, PostIdInput } from "../../services/post.service";
+import { CreatePostInput, ListPostsInput, PostIdInput } from "../../models/post";
+import { REST_PREFIX } from "../../rest/prefix";
 import { describeRoutes } from "../registry";
 import { PostView } from "../schemas";
 

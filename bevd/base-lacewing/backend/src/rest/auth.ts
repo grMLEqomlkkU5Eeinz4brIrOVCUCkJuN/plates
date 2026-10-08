@@ -1,13 +1,6 @@
 import { clearedCookies, cookiesForSession } from "../http/cookies";
-import {
-	LoginInput,
-	login,
-	logout,
-	me,
-	RegisterInput,
-	refresh,
-	register,
-} from "../services/auth.service";
+import { LoginInput, RegisterInput } from "../models/auth";
+import { login, logout, me, refresh, register } from "../services/auth.service";
 import { type RestBase, requireSignedIn } from "./base";
 
 /**

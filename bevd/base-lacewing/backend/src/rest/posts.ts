@@ -1,11 +1,5 @@
-import {
-	CreatePostInput,
-	createPost,
-	getPost,
-	ListPostsInput,
-	listPosts,
-	PostIdInput,
-} from "../services/post.service";
+import { CreatePostInput, ListPostsInput, PostIdInput } from "../models/post";
+import { createPost, getPost, listPosts } from "../services/post.service";
 import { type RestBase, requireSignedIn } from "./base";
 
 /** list/byId/create from trpc/routers/post.ts. Who may see a draft is listPosts' call. */

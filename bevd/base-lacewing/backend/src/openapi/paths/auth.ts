@@ -1,5 +1,5 @@
-import { REST_PREFIX } from "../../rest";
-import { LoginInput, RegisterInput } from "../../services/auth.service";
+import { LoginInput, RegisterInput } from "../../models/auth";
+import { REST_PREFIX } from "../../rest/prefix";
 import { describeRoutes } from "../registry";
 import { OkView, UserView } from "../schemas";
 

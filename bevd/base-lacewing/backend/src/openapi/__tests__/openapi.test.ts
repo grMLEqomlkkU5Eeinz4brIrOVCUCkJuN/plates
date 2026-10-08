@@ -6,7 +6,7 @@ import type { Database } from "../../db";
 import { createTestDatabase } from "../../test/db";
 import { checkedApp } from "../../test/http";
 import { appRouter } from "../../trpc/routers";
-import { toSchemaObject } from "../document";
+import { RPC_ONLY, toSchemaObject } from "../document";
 import { OPENAPI_PATH, renderOpenApi } from "../generate";
 import { buildOpenApiDocument, describedRoutes } from "../index";
 import { checkResponse, violations } from "../responseCheck";
@@ -87,6 +87,13 @@ describe("openapi description", () => {
 				route.request?.body ?? route.request?.params ?? route.request?.query,
 			);
 		}
+	});
+
+	it("names exactly the procedures that have no twin as RPC-only", () => {
+		const twins = describedRoutes().flatMap((route) => route.procedure ?? []);
+		const rpcOnly = Object.keys(procedures).filter((name) => !twins.includes(name));
+
+		expect([...RPC_ONLY].sort()).toEqual(rpcOnly.sort());
 	});
 
 	it("puts every refinement's description in the document", () => {

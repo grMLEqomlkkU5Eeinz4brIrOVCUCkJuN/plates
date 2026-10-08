@@ -8,8 +8,7 @@ export function renderOpenApi(): string {
 	return `${JSON.stringify(buildOpenApiDocument(), null, "\t")}\n`;
 }
 
-// `bun run openapi`. It imports the services, so it needs the same environment the server
-// does - Bun reads it from .env.
+// `bun run openapi`. Runs with no environment at all: nothing it imports reads config/env.
 if (import.meta.main) {
 	writeFileSync(OPENAPI_PATH, renderOpenApi());
 }

@@ -1,4 +1,3 @@
-import { type } from "arktype";
 import { and, eq, isNull } from "drizzle-orm";
 import { requireActor } from "../auth/actor";
 import { signAccessToken } from "../auth/jwt";
@@ -8,20 +7,8 @@ import { generateRefreshToken, hashRefreshToken, refreshTokenExpiresAt } from ".
 import type { Database } from "../db";
 import { type PublicUser, refreshTokens, toPublicUser, users } from "../db/schema";
 import { AppError, isUniqueViolation, parseInput } from "../lib/errors";
+import { LoginInput, RegisterInput } from "../models/auth";
 import type { ServiceCtx } from "./context";
-
-export const RegisterInput = type({
-	email: "string.email",
-	name: "1 <= string <= 100",
-	// argon2 has no length ceiling of its own - the cap is here only to stop someone
-	// posting a megabyte and making us hash it. (bcrypt would have forced 72.)
-	password: "8 <= string <= 128",
-});
-
-export const LoginInput = type({
-	email: "string.email",
-	password: "1 <= string <= 128",
-});
 
 export interface Session {
 	user: PublicUser;

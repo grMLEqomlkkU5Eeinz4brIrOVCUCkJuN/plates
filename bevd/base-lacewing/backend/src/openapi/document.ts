@@ -1,6 +1,5 @@
 import type { Type } from "arktype";
-import { REST_PREFIX } from "../rest";
-import { appRouter } from "../trpc/routers";
+import { REST_PREFIX } from "../rest/prefix";
 import {
 	type Access,
 	type ApiResponse,
@@ -228,6 +227,22 @@ function operationFor(route: ApiRoute, rendered: ReadonlyMap<string, string>) {
 	};
 }
 
+/**
+ * The tRPC procedures with no REST twin, named in the document's description. Written out
+ * rather than read off appRouter, because the router reaches config/env through the
+ * services and the generator must run without a .env; openapi.test.ts holds this list
+ * equal to appRouter's procedures minus the twins.
+ */
+export const RPC_ONLY = [
+	"health.ping",
+	"health.db",
+	"post.update",
+	"post.delete",
+	"user.list",
+	"user.setRole",
+	"user.delete",
+];
+
 /** `/api/v1/posts/:id` to `/api/v1/posts/{id}`. */
 const openApiPath = (path: string) => path.replace(/:(\w+)/g, "{$1}");
 
@@ -251,9 +266,6 @@ export function buildOpenApiDocument() {
 		paths[key] = { ...paths[key], [route.method]: operationFor(route, rendered) };
 	}
 
-	const twins = new Set(routes.flatMap((route) => (route.procedure ? [route.procedure] : [])));
-	const rpcOnly = Object.keys(appRouter._def.procedures).filter((name) => !twins.has(name));
-
 	return {
 		openapi: OPENAPI_VERSION,
 		info: {
@@ -261,7 +273,7 @@ export function buildOpenApiDocument() {
 			version: "1",
 			description: [
 				"The REST surface of the backend. The full API is tRPC, mounted at /trpc; the routes here are REST twins of a few of its procedures (each operation names its procedure in x-trpc-procedure), calling the same services with the same validation and the same lacewing auth.",
-				`RPC-only, with no REST twin: ${rpcOnly.join(", ")}. Reach them through tRPC, or through gRPC where proto/ defines them.`,
+				`RPC-only, with no REST twin: ${RPC_ONLY.join(", ")}. Reach them through tRPC, or through gRPC where proto/ defines them.`,
 				"Every error body is the Error schema: a stable code from the server's error vocabulary, a message, and the requestId the server logged it under.",
 			].join("\n\n"),
 		},

@@ -1,6 +1,5 @@
 import { type } from "arktype";
-import type { ErrorCode } from "../lib/errors";
-import { HTTP_STATUS } from "../rest/errors";
+import { type ErrorCode, HTTP_STATUS } from "../lib/errors";
 import { named } from "./registry";
 
 /**

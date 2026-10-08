@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import { REST_PREFIX } from "../rest";
+import { REST_PREFIX } from "../rest/prefix";
 import { type ApiRoute, describedRoutes } from "./registry";
 import { ErrorBody } from "./schemas";
 
