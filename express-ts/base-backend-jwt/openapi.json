@@ -40,7 +40,7 @@
 				"type": "apiKey",
 				"in": "header",
 				"name": "x-csrf-token",
-				"description": "The csrfToken from login, refresh or /auth/csrf-token, bound to the current access_token."
+				"description": "The csrfToken from login, refresh or /auth/csrf-token, bound to the current access_token cookie. That cookie outlives the token inside it, so refresh can still check the binding."
 			}
 		},
 		"schemas": {
@@ -455,7 +455,8 @@
 				],
 				"security": [
 					{
-						"refreshCookie": []
+						"refreshCookie": [],
+						"csrfHeader": []
 					}
 				],
 				"responses": {
@@ -471,6 +472,16 @@
 					},
 					"401": {
 						"description": "Invalid or expired refresh token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
 						"content": {
 							"application/json": {
 								"schema": {

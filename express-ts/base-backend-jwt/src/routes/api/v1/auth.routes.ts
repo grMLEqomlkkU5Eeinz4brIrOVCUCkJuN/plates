@@ -19,7 +19,7 @@ router.post("/login", validate({ body: loginSchema }), login);
 
 router.post("/logout", authenticate, doubleCsrfProtection, logout);
 
-router.post("/refresh", refresh);
+router.post("/refresh", doubleCsrfProtection, refresh);
 
 router.get("/me", authenticate, me);
 

@@ -101,9 +101,11 @@ describeRoutes([
 			"Uses refresh token to generate new access and refresh tokens",
 		tags: ["Auth"],
 		access: "refresh",
+		csrf: true,
 		responses: {
 			200: { description: "Tokens refreshed", schema: refreshResponse },
 			401: "Invalid or expired refresh token",
+			403: "Invalid CSRF token",
 		},
 	},
 	{

@@ -83,7 +83,7 @@ export const buildOpenApiDocument = (): ReturnType<
 		in: "header",
 		name: "x-csrf-token",
 		description:
-			"The csrfToken from login, refresh or /auth/csrf-token, bound to the current access_token.",
+			"The csrfToken from login, refresh or /auth/csrf-token, bound to the current access_token cookie. That cookie outlives the token inside it, so refresh can still check the binding.",
 	});
 
 	const tags: string[] = [];

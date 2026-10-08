@@ -519,6 +519,11 @@ that cookie rotates. Login and refresh both return a fresh `csrfToken` in the re
 body; a client that caches the one from login gets 403s from the first refresh onward, at
 `JWT_ACCESS_EXPIRY` old. Read it from each response rather than storing it once.
 
+`POST /auth/refresh` needs the `x-csrf-token` header too, so a cross-site form cannot
+rotate the session when `COOKIE_SAME_SITE=none`. Send the token you already hold. The
+`access_token` cookie is kept for `JWT_REFRESH_EXPIRY`, not `JWT_ACCESS_EXPIRY`, so it is
+still there to check the token against after the JWT inside it has expired.
+
 A second cookie of the same name is refused rather than resolved. Any host under
 `COOKIE_DOMAIN` can set `access_token`, browsers send both copies, and nothing says which
 wins, so `authenticate` treats a duplicated name as no session at all.
