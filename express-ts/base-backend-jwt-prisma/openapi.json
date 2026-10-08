@@ -1,0 +1,994 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "jwt-prisma-backend",
+		"version": "1.0.0",
+		"description": "Errors are one shape everywhere: the Error schema. `code` is the value to branch on. Every session route can also answer 401 UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID, and every route with a body 400 MALFORMED_BODY or 413 PAYLOAD_TOO_LARGE."
+	},
+	"servers": [
+		{
+			"url": "/api/v1",
+			"description": "API v1"
+		}
+	],
+	"components": {
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "access_token"
+			}
+		},
+		"schemas": {
+			"Error": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							false
+						]
+					},
+					"code": {
+						"type": "string",
+						"enum": [
+							"VALIDATION_ERROR",
+							"MALFORMED_BODY",
+							"PAYLOAD_TOO_LARGE",
+							"UNAUTHENTICATED",
+							"TOKEN_INVALID",
+							"TOKEN_EXPIRED",
+							"INVALID_CREDENTIALS",
+							"EMAIL_TAKEN",
+							"REFRESH_INVALID",
+							"REFRESH_REUSED",
+							"CSRF_INVALID",
+							"NOT_FOUND",
+							"RATE_LIMITED",
+							"DEPENDENCY_UNAVAILABLE",
+							"INTERNAL"
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"requestId": {
+						"type": "string"
+					},
+					"details": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"field": {
+									"type": "string"
+								},
+								"message": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"field",
+								"message"
+							],
+							"additionalProperties": false
+						}
+					},
+					"stack": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"code",
+					"message",
+					"requestId"
+				],
+				"additionalProperties": false
+			},
+			"Liveness": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						]
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"status",
+					"timestamp"
+				],
+				"additionalProperties": false
+			},
+			"Readiness": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						]
+					},
+					"database": {
+						"type": "string",
+						"enum": [
+							"up"
+						]
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"status",
+					"database",
+					"timestamp"
+				],
+				"additionalProperties": false
+			},
+			"Degraded": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							false
+						]
+					},
+					"code": {
+						"type": "string",
+						"enum": [
+							"DEPENDENCY_UNAVAILABLE"
+						]
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"degraded"
+						]
+					},
+					"database": {
+						"type": "string",
+						"enum": [
+							"down"
+						]
+					},
+					"requestId": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"code",
+					"status",
+					"database",
+					"requestId"
+				],
+				"additionalProperties": false
+			},
+			"Account": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"email": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"email",
+					"name",
+					"createdAt",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"PublicUser": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"createdAt"
+				],
+				"additionalProperties": false
+			},
+			"Session": {
+				"type": "object",
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/Account"
+					},
+					"csrfToken": {
+						"type": "string",
+						"description": "Send back as the x-csrf-token header on every mutation."
+					}
+				},
+				"required": [
+					"user",
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"CsrfToken": {
+				"type": "object",
+				"properties": {
+					"csrfToken": {
+						"type": "string",
+						"description": "Send back as the x-csrf-token header on every mutation."
+					}
+				},
+				"required": [
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"AccountEnvelope": {
+				"type": "object",
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/Account"
+					}
+				},
+				"required": [
+					"user"
+				],
+				"additionalProperties": false
+			},
+			"PublicUserEnvelope": {
+				"type": "object",
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/PublicUser"
+					}
+				},
+				"required": [
+					"user"
+				],
+				"additionalProperties": false
+			},
+			"PublicUserPage": {
+				"type": "object",
+				"properties": {
+					"users": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/PublicUser"
+						}
+					}
+				},
+				"required": [
+					"users"
+				],
+				"additionalProperties": false
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getLiveness",
+				"summary": "Liveness probe. Answers whether the process should be restarted.",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "The process is running.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Liveness"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/health/ready": {
+			"get": {
+				"operationId": "getReadiness",
+				"summary": "Readiness probe. Answers whether this instance should get traffic.",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "The database answered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Readiness"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "DEPENDENCY_UNAVAILABLE.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Degraded"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/csrf-token": {
+			"get": {
+				"operationId": "getCsrfToken",
+				"summary": "A CSRF token for the session in hand, or for an anonymous caller.",
+				"description": "Login and register return one alongside the cookies, so this is only needed after a page reload. Send it back as the x-csrf-token header on every mutation.",
+				"tags": [
+					"Auth"
+				],
+				"responses": {
+					"200": {
+						"description": "Token issued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CsrfToken"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/register": {
+			"post": {
+				"operationId": "register",
+				"summary": "Create an account and open a session.",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"description": "An email address of at most 254 characters, trimmed and lowercased first."
+									},
+									"name": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 100
+									},
+									"password": {
+										"type": "string",
+										"minLength": 10,
+										"maxLength": 128
+									}
+								},
+								"required": [
+									"email",
+									"name",
+									"password"
+								],
+								"additionalProperties": false
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Account created; session cookies set; csrfToken in the body.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Session"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "VALIDATION_ERROR.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "EMAIL_TAKEN.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"429": {
+						"description": "RATE_LIMITED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/login": {
+			"post": {
+				"operationId": "login",
+				"summary": "Exchange email and password for session cookies.",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"description": "An email address of at most 254 characters, trimmed and lowercased first."
+									},
+									"password": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 128
+									}
+								},
+								"required": [
+									"email",
+									"password"
+								],
+								"additionalProperties": false
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Session opened; csrfToken in the body.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Session"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "VALIDATION_ERROR.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "INVALID_CREDENTIALS.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"429": {
+						"description": "RATE_LIMITED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/refresh": {
+			"post": {
+				"operationId": "refresh",
+				"summary": "Rotate the refresh cookie for a new pair.",
+				"description": "Refresh tokens are single use. Presenting one twice revokes the whole family and answers REFRESH_REUSED; either way the cookies are cleared on failure.",
+				"tags": [
+					"Auth"
+				],
+				"responses": {
+					"200": {
+						"description": "New cookies set; csrfToken in the body.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CsrfToken"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "REFRESH_INVALID or REFRESH_REUSED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"429": {
+						"description": "RATE_LIMITED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/logout": {
+			"post": {
+				"operationId": "logout",
+				"summary": "Revoke this session and expire its cookies.",
+				"description": "The access token itself stays valid until it expires, which is at most JWT_ACCESS_EXPIRY away; the refresh chain is dead immediately.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token."
+						},
+						"required": true,
+						"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token.",
+						"name": "x-csrf-token",
+						"in": "header"
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Session revoked."
+					},
+					"401": {
+						"description": "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "CSRF_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me": {
+			"get": {
+				"operationId": "getAccount",
+				"summary": "The signed-in account.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountEnvelope"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"operationId": "patchAccount",
+				"summary": "Change name or email.",
+				"description": "Unknown fields are a 400 rather than a silent drop.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token."
+						},
+						"required": true,
+						"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token.",
+						"name": "x-csrf-token",
+						"in": "header"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"description": "An email address of at most 254 characters, trimmed and lowercased first."
+									},
+									"name": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 100
+									}
+								},
+								"additionalProperties": false,
+								"description": "Every field is optional, but an empty object is a 400: \"Name at least one field to change.\""
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The updated account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountEnvelope"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "VALIDATION_ERROR.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "CSRF_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "EMAIL_TAKEN.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"operationId": "closeAccount",
+				"summary": "Close the account. Final.",
+				"description": "Takes the current password: a borrowed session is not enough authority to delete an account. The row and its sessions go; the cookies are expired on the response.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token."
+						},
+						"required": true,
+						"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token.",
+						"name": "x-csrf-token",
+						"in": "header"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"password": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 128
+									}
+								},
+								"required": [
+									"password"
+								],
+								"additionalProperties": false
+							}
+						}
+					}
+				},
+				"responses": {
+					"204": {
+						"description": "Account closed."
+					},
+					"400": {
+						"description": "VALIDATION_ERROR.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "INVALID_CREDENTIALS, or the session is not valid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "CSRF_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"429": {
+						"description": "RATE_LIMITED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users": {
+			"get": {
+				"operationId": "listUsers",
+				"summary": "A page of users, oldest first.",
+				"description": "Cursor pagination. `cursor` is the id of the last user in the previous page; a page shorter than `limit` is the end. `limit` is capped at 100 on the server.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": false,
+						"name": "cursor",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The page.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PublicUserPage"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "VALIDATION_ERROR.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/{id}": {
+			"get": {
+				"operationId": "getUser",
+				"summary": "One user's public profile.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PublicUserEnvelope"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "VALIDATION_ERROR, when the id is not a uuid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "NOT_FOUND.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -18,11 +18,13 @@
 		"lint:fix": "eslint . --fix",
 		"prepare": "lefthook install",
 		"postinstall": "prisma generate",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"openapi": "node --import tsx ./src/scripts/openapi.ts"
 	},
 	"license": "ISC",
 	"description": "Express + TypeScript service template: JWT cookies, CSRF, Prisma on Postgres",
 	"dependencies": {
+		"@asteasolutions/zod-to-openapi": "^9.1.0",
 		"@prisma/adapter-pg": "^7.10.0",
 		"@prisma/client": "^7.10.0",
 		"argon2": "^0.45.1",

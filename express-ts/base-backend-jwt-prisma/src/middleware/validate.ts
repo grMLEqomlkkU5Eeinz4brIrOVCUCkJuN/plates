@@ -10,6 +10,13 @@ interface ValidationSchema {
 	params?: z.ZodSchema;
 }
 
+/** `schemas` is what the OpenAPI tests compare each route's description
+ *  against, by identity, so the document cannot describe a different schema
+ *  from the one that runs. */
+export type ValidatingHandler = ((req: Request, res: Response, next: NextFunction) => void) & {
+	schemas: ValidationSchema;
+};
+
 /**
  * The trust boundary. Everything downstream of a route that runs this can
  * treat req.body as the parsed type, because the parsed value replaces the raw
@@ -19,8 +26,8 @@ interface ValidationSchema {
  * rather than a value that gets quietly dropped. That is what stops a caller
  * from posting `passwordHash` alongside a profile edit and hoping it binds.
  */
-export const validate = (schema: ValidationSchema) => {
-	return (req: Request, _res: Response, next: NextFunction): void => {
+export const validate = (schema: ValidationSchema): ValidatingHandler => {
+	const handler = (req: Request, _res: Response, next: NextFunction): void => {
 		const locations: RequestLocation[] = ["body", "query", "params"];
 
 		for (const location of locations) {
@@ -59,4 +66,6 @@ export const validate = (schema: ValidationSchema) => {
 
 		next();
 	};
+
+	return Object.assign(handler, { schemas: schema });
 };
