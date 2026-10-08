@@ -4,7 +4,10 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
+import { requestContext } from "./http/request";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { REST_PREFIX, type RestExchange } from "./rest/context";
+import { restApi } from "./rest/routes";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
@@ -17,9 +20,14 @@ import { appRouter } from "./trpc/routers";
 export interface AppDeps {
 	db: Database;
 	log: Logger;
+	/**
+	 * Sees every /api/v1 response before it is sent. Only the test app passes one: it is
+	 * how openapi/responseCheck.ts holds each response to the documented schema.
+	 */
+	inspectRest?: (exchange: RestExchange) => void;
 }
 
-export function createApp({ db, log: root }: AppDeps) {
+export function createApp({ db, log: root, inspectRest }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
@@ -28,10 +36,7 @@ export function createApp({ db, log: root }: AppDeps) {
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
 			// which is strictly more useful. See the note on `.mount` below.
-			.derive(({ request }) => ({
-				requestId: requestIdFrom(request.headers.get("x-request-id")),
-				startedAt: performance.now(),
-			}))
+			.use(requestContext)
 			.onAfterHandle(({ set, requestId }) => {
 				set.headers["x-request-id"] = requestId;
 			})
@@ -51,12 +56,20 @@ export function createApp({ db, log: root }: AppDeps) {
 				);
 			})
 			.onError(({ code, error, path, requestId }) => {
+				// The REST routes map and log their own failures, most of which are a 401 or
+				// a 404 doing its job rather than anything unhandled. See rest/context.ts.
+				if (path.startsWith(REST_PREFIX)) return;
+
 				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
 
 			// A plain Elysia REST route. Elysia and tRPC share the same server - use REST for
 			// what the browser or a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
+
+			// REST twins of the core tRPC procedures, for callers that want plain HTTP and an
+			// OpenAPI document. Same services, same checks; see rest/routes.
+			.use(restApi({ db, log: root, inspect: inspectRest }))
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//
