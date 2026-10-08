@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { extendZodWithOpenApi, zodToOpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 
 // Must run before any schema calls .openapi(). It patches zod's prototype,
 // so it reaches schemas built earlier too.
@@ -49,21 +49,19 @@ export const describeRoutes = (list: readonly ApiRoute[]): void => {
 export const describedRoutes = (): readonly ApiRoute[] => routes;
 
 /**
- * Names a schema so the document refers to it as a component. The id goes into
- * zod's global registry against this very instance rather than through
- * `.meta()`, which would return a copy: the validators must keep running the
- * same object the document describes. Two different schemas under one id is
- * an error.
+ * Names a schema so the document refers to it as a component. The name is
+ * recorded against this very instance rather than through `.meta()` or
+ * `.openapi()`, which return a copy: the validators must keep running the same
+ * object the document describes. Two different schemas under one id is an error.
  */
 export const named = <T extends z.ZodType>(id: string, schema: T): T => {
 	const existing = components.get(id);
 	if (existing && existing !== schema) throw new Error(`Two schemas are named ${id}.`);
-	z.globalRegistry.add(schema, { ...z.globalRegistry.get(schema), id });
+	const metadata = zodToOpenAPIRegistry.get(schema);
+	zodToOpenAPIRegistry.add(schema, { ...metadata, _internal: { ...metadata?._internal, refId: id } });
 	components.set(id, schema);
 	return schema;
 };
-
-export const namedComponents = (): ReadonlyMap<string, z.ZodType> => components;
 
 /** What errorHandler sends for every error status. */
 export const errorBodySchema = named(

@@ -3,7 +3,7 @@ import {
 	OpenApiGeneratorV3,
 	type RouteConfig,
 } from "@asteasolutions/zod-to-openapi";
-import { type ApiRoute, describedRoutes, errorBodySchema, namedComponents } from "./registry";
+import { type ApiRoute, describedRoutes, errorBodySchema } from "./registry";
 
 export const API_PREFIX = "/api/v1";
 
@@ -32,8 +32,6 @@ const responsesOf = (route: ApiRoute): RouteConfig["responses"] => {
 
 export const buildOpenApiDocument = (): ReturnType<OpenApiGeneratorV3["generateDocument"]> => {
 	const registry = new OpenAPIRegistry();
-
-	for (const [id, schema] of namedComponents()) registry.register(id, schema);
 
 	for (const route of describedRoutes()) {
 		const { params, query, body } = route.request ?? {};

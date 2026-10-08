@@ -1,0 +1,67 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "base-backend",
+		"version": "1.0.0",
+		"description": "API documentation"
+	},
+	"servers": [
+		{
+			"url": "/api/v1",
+			"description": "API v1"
+		}
+	],
+	"tags": [
+		{
+			"name": "Health"
+		}
+	],
+	"components": {
+		"schemas": {
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						]
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"status",
+					"timestamp"
+				],
+				"additionalProperties": false
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Health check endpoint",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "Server is healthy",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
