@@ -4,14 +4,24 @@ import { createError } from "./errorHandler";
 
 type RequestLocation = "body" | "query" | "params";
 
-interface ValidationSchema {
+export interface ValidationSchema {
 	body?: z.ZodSchema;
 	query?: z.ZodSchema;
 	params?: z.ZodSchema;
 }
 
-export const validate = (schema: ValidationSchema) => {
-	return (req: Request, _res: Response, next: NextFunction): void => {
+type ValidateMiddleware = ((
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => void) & { schemas: ValidationSchema };
+
+export const validate = (schema: ValidationSchema): ValidateMiddleware => {
+	const middleware = (
+		req: Request,
+		_res: Response,
+		next: NextFunction
+	): void => {
 		const locations: RequestLocation[] = ["body", "query", "params"];
 
 		for (const location of locations) {
@@ -36,4 +46,8 @@ export const validate = (schema: ValidationSchema) => {
 
 		next();
 	};
+
+	// openapi.test.ts reads the schemas back to prove the document describes
+	// the ones that run.
+	return Object.assign(middleware, { schemas: schema });
 };
