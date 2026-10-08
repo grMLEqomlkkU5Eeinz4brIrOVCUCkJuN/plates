@@ -17,7 +17,10 @@ app.listen(env.PORT, (server) => {
 		{
 			rest: `http://${server.hostname}:${server.port}/health`,
 			trpc: `http://${server.hostname}:${server.port}/trpc`,
-			openapi: `http://${server.hostname}:${server.port}/openapi`,
+			// Not served in production; see the openapi plugin in app.ts.
+			...(env.NODE_ENV === "production"
+				? {}
+				: { docs: `http://${server.hostname}:${server.port}/docs` }),
 		},
 		"http listening",
 	);
