@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../app";
 import { createDatabase, type Database } from "../db";
 import { ACCESS_COOKIE } from "../http/cookies";
-import { logger } from "../lib/logger";
+import { testApp } from "../test/app";
 import { createTestDatabase } from "../test/db";
 
 /**
@@ -11,12 +10,12 @@ import { createTestDatabase } from "../test/db";
  * have the next request authenticate with it.
  */
 describe("app over http", () => {
-	let app: ReturnType<typeof createApp>;
+	let app: ReturnType<typeof testApp>;
 	let db: Database;
 
 	beforeEach(async () => {
 		db = await createTestDatabase();
-		app = createApp({ db, log: logger });
+		app = testApp(db);
 	});
 
 	function trpc(procedure: string, body?: unknown, cookie?: string): Promise<Response> {
@@ -113,7 +112,7 @@ describe("app over http", () => {
 		// procedure, which is exactly the case that used to hand the client the failing
 		// SQL, its parameters and a stack trace.
 		const { db: missing } = createDatabase("postgres://nobody:hunter2@127.0.0.1:59999/nope");
-		const broken = createApp({ db: missing, log: logger });
+		const broken = testApp(missing);
 
 		const response = await broken.handle(
 			new Request("http://localhost/trpc/auth.login", {

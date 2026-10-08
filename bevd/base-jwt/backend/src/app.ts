@@ -5,6 +5,10 @@ import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { buildOpenApiDocument } from "./openapi";
+import { authRoutes } from "./rest/auth";
+import { postRoutes } from "./rest/post";
+import { requestContext } from "./rest/request";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
@@ -23,15 +27,25 @@ export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-			.use(openapi({ path: "/openapi" }))
+			// The plugin renders the UI and serves the JSON, but the document is the one built
+			// from src/openapi, not one the plugin infers. Inference cannot see what the
+			// registry knows: response bodies, error statuses, which tRPC procedures are
+			// RPC-only. So every route is excluded from inference and the plugin is handed the
+			// whole document; the test suite holds /docs.json equal to openapi.json.
+			.use(
+				openapi({
+					enabled: env.NODE_ENV !== "production",
+					path: "/docs",
+					specPath: "/docs.json",
+					documentation: buildOpenApiDocument(),
+					exclude: { paths: [/.*/] },
+				}),
+			)
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
 			// which is strictly more useful. See the note on `.mount` below.
-			.derive(({ request }) => ({
-				requestId: requestIdFrom(request.headers.get("x-request-id")),
-				startedAt: performance.now(),
-			}))
+			.use(requestContext)
 			.onAfterHandle(({ set, requestId }) => {
 				set.headers["x-request-id"] = requestId;
 			})
@@ -51,12 +65,20 @@ export function createApp({ db, log: root }: AppDeps) {
 				);
 			})
 			.onError(({ code, error, path, requestId }) => {
+				// The REST routes map and log their own errors; see rest/errors.ts.
+				if (path.startsWith("/api/v1")) return;
+
 				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
 
 			// A plain Elysia REST route. Elysia and tRPC share the same server - use REST for
 			// what the browser or a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
+
+			// REST twins of the core auth and post procedures, for clients without a tRPC
+			// client. Same services, same arktype schemas; see rest/auth.ts and rest/post.ts.
+			.use(authRoutes({ db, log: root }))
+			.use(postRoutes({ db, log: root }))
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//

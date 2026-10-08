@@ -15,6 +15,7 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"typecheck": "tsc --noEmit",
+		"openapi": "bun run src/scripts/openapi.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",

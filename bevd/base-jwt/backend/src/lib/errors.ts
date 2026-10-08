@@ -11,13 +11,17 @@ import { type Type, type } from "arktype";
  * both transports treat it as one - logged in full with its stack, and reported to the
  * caller as a bare "internal error" carrying nothing but a request id.
  */
-export type ErrorCode =
-	| "BAD_REQUEST"
-	| "UNAUTHORIZED"
-	| "FORBIDDEN"
-	| "NOT_FOUND"
-	| "CONFLICT"
-	| "INTERNAL";
+export const ERROR_CODES = [
+	"BAD_REQUEST",
+	"UNAUTHORIZED",
+	"FORBIDDEN",
+	"NOT_FOUND",
+	"CONFLICT",
+	"INTERNAL",
+] as const;
+
+/** A list as well as a type, so the REST error schema (openapi/schemas.ts) is built from it. */
+export type ErrorCode = (typeof ERROR_CODES)[number];
 
 export class AppError extends Error {
 	readonly code: ErrorCode;

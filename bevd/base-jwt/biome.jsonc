@@ -9,7 +9,14 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/dist", "!**/node_modules", "!backend/drizzle"]
+		// openapi.json is generated, and a test compares it byte for byte with the generator.
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!backend/drizzle",
+			"!backend/openapi.json"
+		]
 	},
 	"formatter": {
 		"enabled": true,
