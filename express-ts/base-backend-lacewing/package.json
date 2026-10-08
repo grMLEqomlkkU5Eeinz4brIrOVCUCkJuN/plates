@@ -13,6 +13,7 @@
 		"lint:fix": "eslint . --fix",
 		"prepare": "lefthook install",
 		"typecheck": "tsc --noEmit",
+		"openapi": "tsx src/scripts/generateOpenApi.ts",
 		"secrets": "node -e \"const r=()=>require('node:crypto').randomBytes(32).toString('base64url');for(const k of['JWT_SECRET','JWT_REFRESH_SECRET','COOKIE_SECRET','CSRF_SECRET'])console.log(k+'='+r())\""
 	},
 	"keywords": [],
@@ -20,6 +21,7 @@
 	"license": "ISC",
 	"description": "Express + TypeScript backend demonstrating lacewing, the RFC 8725-first JWT library",
 	"dependencies": {
+		"@asteasolutions/zod-to-openapi": "^9.1.0",
 		"cookie-parser": "^1.4.7",
 		"cors": "^2.8.6",
 		"csrf-csrf": "^4.0.3",
