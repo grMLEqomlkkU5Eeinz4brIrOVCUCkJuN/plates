@@ -28,6 +28,8 @@ const mounts: [Router, string][] = [
 	[userRoutes, "/api/v1/users"],
 ];
 
+// Router's type does not expose its stack, and zod's def types below are
+// per-kind; both are read structurally here.
 const stackOf = (router: Router): Layer[] => (router as unknown as { stack: Layer[] }).stack;
 
 const mountedRoutes = (): Map<string, Layer[]> => {

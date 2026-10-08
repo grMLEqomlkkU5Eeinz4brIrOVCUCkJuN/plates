@@ -30,7 +30,9 @@ export const responseCheck = (req: Request, res: Response, next: NextFunction): 
 
 	res.json = (body: unknown): Response => {
 		// req.route is the matched route; baseUrl is where its router is mounted.
-		const pattern = req.route ? `${req.baseUrl}${req.route.path}`.slice(API_PREFIX.length) : undefined;
+		const pattern = req.route
+			? `${req.baseUrl}${req.route.path}`.slice(API_PREFIX.length)
+			: undefined;
 		const key = routeKey(req.method, pattern ?? req.path);
 		const route = pattern === undefined ? undefined : byKey.get(key);
 		const status = res.statusCode;

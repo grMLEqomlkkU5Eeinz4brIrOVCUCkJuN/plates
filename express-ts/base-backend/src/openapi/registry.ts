@@ -58,7 +58,10 @@ export const named = <T extends z.ZodType>(id: string, schema: T): T => {
 	const existing = components.get(id);
 	if (existing && existing !== schema) throw new Error(`Two schemas are named ${id}.`);
 	const metadata = zodToOpenAPIRegistry.get(schema);
-	zodToOpenAPIRegistry.add(schema, { ...metadata, _internal: { ...metadata?._internal, refId: id } });
+	zodToOpenAPIRegistry.add(schema, {
+		...metadata,
+		_internal: { ...metadata?._internal, refId: id },
+	});
 	components.set(id, schema);
 	return schema;
 };
