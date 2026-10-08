@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { createTestApp } from "../../../../test/app";
 import { resetDatabase } from "../../../../test/db";
-import { PASSWORD, asUser, refreshAnonymously, signUp, withCsrf, type TestSession } from "../../../../test/auth";
+import { PASSWORD, asUser, refreshAs, signUp, withCsrf, type TestSession } from "../../../../test/auth";
 
 describe("user routes", () => {
 	const app = createTestApp();
@@ -117,7 +117,7 @@ describe("user routes", () => {
 			expect(afterwards.body.code).toBe("UNAUTHENTICATED");
 
 			// The refresh family went with the row, by cascade.
-			const refresh = await refreshAnonymously(app, session.refreshToken);
+			const refresh = await refreshAs(app, session);
 			expect(refresh.status).toBe(401);
 			expect(refresh.body.code).toBe("REFRESH_INVALID");
 		});

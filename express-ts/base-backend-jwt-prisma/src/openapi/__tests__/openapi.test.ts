@@ -7,7 +7,7 @@ import authRoutes from "../../routes/api/v1/auth.routes";
 import healthRoutes from "../../routes/api/v1/health.routes";
 import userRoutes from "../../routes/api/v1/user.routes";
 import { authenticate, ACCESS_COOKIE } from "../../middleware/auth";
-import { doubleCsrfProtection } from "../../middleware/csrf";
+import { doubleCsrfProtection, refreshCsrfProtection } from "../../middleware/csrf";
 import type { ValidatingHandler } from "../../middleware/validate";
 import { OPENAPI_PATH, renderOpenApi } from "../../scripts/openapi";
 import { buildOpenApiDocument, describedRoutes } from "..";
@@ -59,7 +59,7 @@ const walk = (): WalkedRoute[] => {
 				walked.push({
 					key: routeKey(method, path),
 					authenticated: authenticated || handlers.includes(authenticate),
-					csrf: handlers.includes(doubleCsrfProtection),
+					csrf: handlers.includes(doubleCsrfProtection) || handlers.includes(refreshCsrfProtection),
 					schemas: handlers.find((handler) => handler.schemas)?.schemas ?? {},
 				});
 			}
@@ -158,7 +158,7 @@ describe("OpenAPI description", () => {
 		]);
 	});
 
-	it("requires the CSRF header exactly where doubleCsrfProtection runs", () => {
+	it("requires the CSRF header exactly where a CSRF check runs", () => {
 		for (const route of walk()) {
 			expect([route.key, described.get(route.key)?.csrf ?? false]).toEqual([route.key, route.csrf]);
 		}

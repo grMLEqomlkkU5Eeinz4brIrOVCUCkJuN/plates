@@ -1,6 +1,7 @@
 import { doubleCsrf } from "csrf-csrf";
-import { CookieOptions, Request, Response } from "express";
+import { CookieOptions, NextFunction, Request, Response } from "express";
 import { env } from "../config/env";
+import { httpError } from "./errorHandler";
 
 const CSRF_COOKIE = "__csrf";
 
@@ -48,6 +49,21 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
  */
 export const clearCsrfCookie = (res: Response): void => {
 	res.clearCookie(CSRF_COOKIE, cookieOptions);
+};
+
+/**
+ * POST /auth/refresh: the refresh cookie rides along on any cross-site POST to
+ * its path, so it is CSRF-checked like every other cookie mutation, and only
+ * against the access cookie. The IP fallback above is for anonymous callers;
+ * here it would let a token minted for an address renew a session. The access
+ * cookie lives as long as the refresh cookie (middleware/auth.ts), so a
+ * legitimate refresh always has it, expired JWT inside or not.
+ */
+export const refreshCsrfProtection = (req: Request, res: Response, next: NextFunction): void => {
+	if (!req.cookies?.access_token) {
+		throw httpError(403, "Invalid CSRF token.", { errorCode: "CSRF_INVALID" });
+	}
+	doubleCsrfProtection(req, res, next);
 };
 
 export { doubleCsrfProtection, generateCsrfToken as generateToken };
