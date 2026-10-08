@@ -24,7 +24,7 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  * and the tRPC mount keep the behaviour they had.
  */
 export function restErrors(log: Logger) {
-	return new Elysia({ name: "rest-errors" })
+	return new Elysia()
 		.use(requestContext)
 		.onError({ as: "scoped" }, (context): typeof ErrorBody.infer => {
 			const { code, error, set, path, request } = context;
