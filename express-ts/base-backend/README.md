@@ -175,7 +175,7 @@ import {
 	CreateProductData,
 	UpdateProductData,
 } from "../models/product.model";
-import { AppError } from "../middleware/errorHandler";
+import { createError } from "../middleware/errorHandler";
 
 // Replace with your database
 const products = new Map<string, Product>();
@@ -195,7 +195,7 @@ export const getProducts = (_req: Request, res: Response): void => {
 export const getProductById = (req: Request, res: Response): void => {
 	const product = products.get(req.params.id);
 	if (!product) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	res.json(product.toJSON());
 };
@@ -203,7 +203,7 @@ export const getProductById = (req: Request, res: Response): void => {
 export const updateProduct = (req: Request, res: Response): void => {
 	const product = products.get(req.params.id);
 	if (!product) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	product.update(req.body as UpdateProductData);
 	res.json(product.toJSON());
@@ -211,7 +211,7 @@ export const updateProduct = (req: Request, res: Response): void => {
 
 export const deleteProduct = (req: Request, res: Response): void => {
 	if (!products.delete(req.params.id)) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	res.status(204).send();
 };
@@ -459,13 +459,17 @@ descriptions in `src/openapi/paths/`; `openapi.json` is the committed copy.
 
 ### Error Handling
 
-Throw `AppError` for operational errors:
+Throw an [http-errors](https://github.com/jshttp/http-errors) error, re-exported
+from `middleware/errorHandler` as `createError`. `errorHandler` answers with its
+status and `{ success: false, message }`. A 4xx message reaches the client; a
+5xx or any other thrown error becomes "Internal server error", and the full
+error is logged either way.
 
 ```typescript
-import { AppError } from "../middleware/errorHandler";
+import { createError } from "../middleware/errorHandler";
 
-throw new AppError(404, "Resource not found");
-throw new AppError(400, "Invalid input");
+throw createError(404, "Resource not found");
+throw createError(400, "Invalid input");
 ```
 
 ### Validation
