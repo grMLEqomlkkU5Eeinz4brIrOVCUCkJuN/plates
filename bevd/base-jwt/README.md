@@ -46,7 +46,7 @@ usable. Refreshing **rotates** the token, so a stolen one is good for a single u
 read - so an XSS bug cannot walk off with the session. The Vue app has no `localStorage`
 token and no `Authorization` header; it just asks `auth.me` who it is. Non-browser callers
 (curl, another service, gRPC) send `Authorization: Bearer <jwt>` instead, and
-`trpc/context.ts` accepts either.
+`http/actor.ts` accepts either.
 
 ## Authorization
 
