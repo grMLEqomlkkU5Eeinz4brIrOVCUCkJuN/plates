@@ -1,11 +1,12 @@
 import { cors } from "@elysiajs/cors";
-import { openapi } from "@elysiajs/openapi";
+import { ScalarRender } from "@elysiajs/openapi/scalar";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
 import { requestContext } from "./http/request";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { buildOpenApiDocument } from "./openapi";
 import { restApi } from "./rest";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
@@ -25,7 +26,6 @@ export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-			.use(openapi({ path: "/openapi" }))
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
@@ -62,6 +62,28 @@ export function createApp({ db, log: root }: AppDeps) {
 			// A plain Elysia route. Elysia and tRPC share the same server - use plain routes
 			// for what a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
+
+			// The OpenAPI document, built from src/openapi/ - the same document `bun run openapi`
+			// commits as openapi.json - and a Scalar page over it. @elysiajs/openapi supplies
+			// only the page: its plugin generates a document from the routes it can see and
+			// merges in whatever it is given, so it cannot serve this one unaltered. Outside
+			// production only, like the plugin's default.
+			.use((app) => {
+				if (env.NODE_ENV === "production") return app;
+
+				const document = buildOpenApiDocument();
+				const page = ScalarRender(document.info, { url: "/docs.json" });
+
+				return app
+					.get("/docs.json", () => document)
+					.get(
+						"/docs",
+						() =>
+							new Response(page, {
+								headers: { "content-type": "text/html; charset=utf-8" },
+							}),
+					);
+			})
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//

@@ -8,7 +8,7 @@ import type { ServiceCtx } from "../services/context";
 
 export const REST_PREFIX = "/api/v1";
 
-const HTTP_STATUS: Record<ErrorCode, number> = {
+export const HTTP_STATUS: Record<ErrorCode, number> = {
 	BAD_REQUEST: 400,
 	UNAUTHORIZED: 401,
 	FORBIDDEN: 403,
