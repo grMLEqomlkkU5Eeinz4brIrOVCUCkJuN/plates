@@ -1,7 +1,10 @@
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
-import { createUserSchema, updateUserSchema } from "../../../models/user.model";
+import {
+	createUserSchema,
+	updateUserSchema,
+	userIdParamsSchema,
+} from "../../../models/user.model";
 import asyncHandler from "../../../utils/asyncHandler";
 import {
 	createUser,
@@ -12,12 +15,6 @@ import {
 } from "../../../controllers/user.controller";
 
 const router = Router();
-
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid user ID format"),
-	}),
-};
 
 /**
  * @swagger
@@ -148,7 +145,11 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/:id", validate(idParamSchema), asyncHandler(getUserById));
+router.get(
+	"/:id",
+	validate({ params: userIdParamsSchema }),
+	asyncHandler(getUserById)
+);
 
 /**
  * @swagger
@@ -181,7 +182,7 @@ router.get("/:id", validate(idParamSchema), asyncHandler(getUserById));
  */
 router.patch(
 	"/:id",
-	validate({ ...idParamSchema, body: updateUserSchema }),
+	validate({ params: userIdParamsSchema, body: updateUserSchema }),
 	asyncHandler(updateUser)
 );
 
@@ -204,6 +205,10 @@ router.patch(
  *       404:
  *         description: User not found
  */
-router.delete("/:id", validate(idParamSchema), asyncHandler(deleteUser));
+router.delete(
+	"/:id",
+	validate({ params: userIdParamsSchema }),
+	asyncHandler(deleteUser)
+);
 
 export default router;
