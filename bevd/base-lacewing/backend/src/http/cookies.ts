@@ -66,7 +66,7 @@ export function sessionCookies(
  * What both HTTP doors send back when a service hands them a Session: the two token
  * cookies plus a fresh CSRF token with every session. The CSRF token rides in the one
  * readable cookie, and mutations must echo it in the x-csrf-token header - see
- * http/csrf.ts, the csrfGuard in trpc/trpc.ts and the one in rest/index.ts.
+ * http/csrf.ts, the csrfGuard in trpc/trpc.ts and the one in rest/base.ts.
  */
 export function cookiesForSession(
 	session: Pick<Session, "accessToken" | "refreshToken">,

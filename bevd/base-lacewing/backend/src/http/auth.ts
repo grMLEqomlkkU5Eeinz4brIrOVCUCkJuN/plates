@@ -15,7 +15,7 @@ export type ActorSource = "cookie" | "bearer" | "direct";
 
 /**
  * Everything lacewing auth reads off an HTTP request. tRPC (trpc/context.ts) and the REST
- * routes (rest/index.ts) both start from this, so the two doors cannot disagree about who
+ * routes (rest/base.ts) both start from this, so the two doors cannot disagree about who
  * is calling or whether a mutation carried its CSRF pair.
  */
 export interface RequestAuth {
