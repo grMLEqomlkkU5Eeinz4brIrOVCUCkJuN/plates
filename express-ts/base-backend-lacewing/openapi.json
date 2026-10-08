@@ -14,6 +14,12 @@
 	"tags": [
 		{
 			"name": "Health"
+		},
+		{
+			"name": "Auth"
+		},
+		{
+			"name": "Users"
 		}
 	],
 	"components": {
@@ -63,6 +69,247 @@
 					"timestamp"
 				],
 				"additionalProperties": false
+			},
+			"CsrfTokenResponse": {
+				"type": "object",
+				"properties": {
+					"csrfToken": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"LoginResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"user": {
+						"type": "object",
+						"properties": {
+							"userId": {
+								"type": "string"
+							},
+							"email": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"userId",
+							"email"
+						],
+						"additionalProperties": false
+					},
+					"csrfToken": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"user",
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							false
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"stack": {
+						"type": "string",
+						"description": "Sent only when NODE_ENV is development."
+					}
+				},
+				"required": [
+					"success",
+					"message"
+				],
+				"additionalProperties": false
+			},
+			"LoginRequest": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"password": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"required": [
+					"email",
+					"password"
+				]
+			},
+			"LogoutResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message"
+				],
+				"additionalProperties": false
+			},
+			"RefreshResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"csrfToken": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"MeResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"user": {
+						"type": "object",
+						"properties": {
+							"userId": {
+								"type": "string"
+							},
+							"email": {
+								"type": "string"
+							},
+							"jti": {
+								"type": "string",
+								"description": "What logout revokes."
+							},
+							"exp": {
+								"type": "integer",
+								"description": "Unix seconds."
+							}
+						},
+						"required": [
+							"userId",
+							"email",
+							"jti",
+							"exp"
+						],
+						"additionalProperties": false
+					}
+				},
+				"required": [
+					"success",
+					"user"
+				],
+				"additionalProperties": false
+			},
+			"User": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 100
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"email",
+					"name",
+					"createdAt",
+					"updatedAt"
+				]
+			},
+			"CreateUser": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 100
+					}
+				},
+				"required": [
+					"email",
+					"name"
+				]
+			},
+			"UpdateUser": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 100
+					}
+				}
 			}
 		},
 		"parameters": {}
@@ -83,6 +330,544 @@
 							"application/json": {
 								"schema": {
 									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/csrf-token": {
+			"get": {
+				"operationId": "getCsrfToken",
+				"summary": "Get CSRF token",
+				"description": "Returns a CSRF token for use in subsequent state-changing requests, and sets the __csrf cookie it pairs with. It is bound to the access token cookie the request carried, if any.",
+				"tags": [
+					"Auth"
+				],
+				"responses": {
+					"200": {
+						"description": "CSRF token generated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CsrfTokenResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/login": {
+			"post": {
+				"operationId": "login",
+				"summary": "Login user",
+				"description": "Sets the access_token and refresh_token cookies (HttpOnly, Secure) and returns a CSRF token bound to the new session. The tokens never appear in the body.",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/LoginRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Login successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LoginResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/logout": {
+			"post": {
+				"operationId": "logout",
+				"summary": "Logout user",
+				"description": "Revokes the access token by its jti, so it stops working now rather than at expiry, and clears the auth and CSRF cookies.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"accessCookie": [],
+						"csrfToken": []
+					},
+					{
+						"bearerAuth": [],
+						"csrfToken": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Logout successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LogoutResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not authenticated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/refresh": {
+			"post": {
+				"operationId": "refresh",
+				"summary": "Refresh tokens",
+				"description": "Rotates the session: the refresh token used is revoked and a new access and refresh token pair is set as cookies. Replaying a used refresh token gets a 401.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"refreshCookie": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Tokens refreshed",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RefreshResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Missing, invalid, expired or already used refresh token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/me": {
+			"get": {
+				"operationId": "getMe",
+				"summary": "Get current user",
+				"description": "Returns the claims of the verified access token.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"accessCookie": []
+					},
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "User information",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/MeResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not authenticated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users": {
+			"get": {
+				"operationId": "getUsers",
+				"summary": "Get all users",
+				"description": "Every user, unpaginated.",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"accessCookie": []
+					},
+					{
+						"bearerAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "List of users",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/User"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "createUser",
+				"summary": "Create a new user",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"accessCookie": [],
+						"csrfToken": []
+					},
+					{
+						"bearerAuth": [],
+						"csrfToken": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateUser"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "User created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/{id}": {
+			"get": {
+				"operationId": "getUserById",
+				"summary": "Get user by ID",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"accessCookie": []
+					},
+					{
+						"bearerAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "User found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The id is not a uuid",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "User not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"operationId": "updateUser",
+				"summary": "Update user",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"accessCookie": [],
+						"csrfToken": []
+					},
+					{
+						"bearerAuth": [],
+						"csrfToken": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateUser"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "User updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The id is not a uuid, or validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "User not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"operationId": "deleteUser",
+				"summary": "Delete user",
+				"tags": [
+					"Users"
+				],
+				"security": [
+					{
+						"accessCookie": [],
+						"csrfToken": []
+					},
+					{
+						"bearerAuth": [],
+						"csrfToken": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"required": true,
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "User deleted"
+					},
+					"400": {
+						"description": "The id is not a uuid",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "User not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
 								}
 							}
 						}

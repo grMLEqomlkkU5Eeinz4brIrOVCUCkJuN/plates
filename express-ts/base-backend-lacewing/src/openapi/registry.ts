@@ -61,7 +61,12 @@ export const describedRoutes = (): readonly ApiRoute[] => routes;
  * Names a schema so the document refers to it as a component and the generated
  * client gets a class of that name. Register a schema before using it nullable
  * anywhere: an unregistered component takes its first use's nullability with it.
+ *
  * Two different schemas under one id is an error.
+ *
+ * This returns a .meta() copy, so a request schema cannot be named here: the
+ * document would describe the copy while validate() runs the original. The
+ * models name their request schemas with .meta({ id }) where they are built.
  */
 export const named = <T extends z.ZodType>(id: string, schema: T): T => {
 	const existing = components.get(id);
@@ -71,12 +76,3 @@ export const named = <T extends z.ZodType>(id: string, schema: T): T => {
 	components.set(id, tagged);
 	return tagged;
 };
-
-/**
- * The User model holds Dates and the response check runs before serialisation,
- * so the schema stays z.date(). The document says ISO 8601 string, which is
- * what the client receives.
- */
-export const timestamp = z
-	.date()
-	.openapi({ type: "string", format: "date-time" });

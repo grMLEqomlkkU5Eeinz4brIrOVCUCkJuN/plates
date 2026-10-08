@@ -8,12 +8,15 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({
+const userFields = userSchema.omit({
 	id: true,
 	createdAt: true,
 	updatedAt: true,
 });
-export const updateUserSchema = createUserSchema.partial();
+
+// The ids name the OpenAPI components; see models/auth.model.ts for why here.
+export const createUserSchema = userFields.meta({ id: "CreateUser" });
+export const updateUserSchema = userFields.partial().meta({ id: "UpdateUser" });
 
 export const userIdParamsSchema = z.object({
 	id: z.string().uuid("Invalid user ID format"),
