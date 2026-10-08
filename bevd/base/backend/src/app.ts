@@ -5,6 +5,7 @@ import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { buildOpenApiDocument } from "./openapi";
 import { postRoutes } from "./rest/post";
 import { requestContext } from "./rest/request";
 import { createContextFactory } from "./trpc/context";
@@ -25,7 +26,20 @@ export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-			.use(openapi({ path: "/openapi" }))
+			// The plugin renders the UI and serves the JSON, but the document is the one built
+			// from src/openapi, not one the plugin infers. Inference cannot see what the
+			// registry knows: response bodies, error statuses, which tRPC procedures are
+			// RPC-only. So every route is excluded from inference and the plugin is handed the
+			// whole document; the test suite holds /docs.json equal to openapi.json.
+			.use(
+				openapi({
+					enabled: env.NODE_ENV !== "production",
+					path: "/docs",
+					specPath: "/docs.json",
+					documentation: buildOpenApiDocument(),
+					exclude: { paths: [/.*/] },
+				}),
+			)
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,

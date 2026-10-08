@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../app";
 import { createDatabase } from "../../db";
-import { logger } from "../../lib/logger";
+import { testApp } from "../../test/app";
 import { createTestDatabase } from "../../test/db";
 
 const json = (body: unknown): RequestInit => ({
@@ -15,13 +14,13 @@ interface ErrorBody {
 }
 
 describe("REST /api/v1/posts", () => {
-	let app: ReturnType<typeof createApp>;
+	let app: ReturnType<typeof testApp>;
 
 	const call = (path: string, init?: RequestInit) =>
 		app.handle(new Request(`http://localhost/api/v1${path}`, init));
 
 	beforeEach(async () => {
-		app = createApp({ db: await createTestDatabase(), log: logger });
+		app = testApp(await createTestDatabase());
 	});
 
 	it("creates with 201 and reads the post back by id", async () => {
@@ -104,7 +103,7 @@ describe("REST /api/v1/posts", () => {
 
 	it("never leaks internals when the database is gone", async () => {
 		const { db } = createDatabase("postgres://nobody:hunter2@127.0.0.1:59999/nope");
-		const broken = createApp({ db, log: logger });
+		const broken = testApp(db);
 
 		const response = await broken.handle(
 			new Request("http://localhost/api/v1/posts", json({ title: "x", body: "y" })),

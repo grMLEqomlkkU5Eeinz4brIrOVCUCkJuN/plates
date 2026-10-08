@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		include: ["src/**/*.test.ts"],
+		setupFiles: ["src/test/setup.ts"],
 		// Tests never touch the docker-compose database - they run against PGlite,
 		// an in-process Postgres. These values only exist to satisfy env validation.
 		env: {

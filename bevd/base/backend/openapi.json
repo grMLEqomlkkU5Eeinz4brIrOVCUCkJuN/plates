@@ -1,0 +1,366 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "bevd-base",
+		"version": "1.0.0",
+		"description": "The REST surface of bevd/base. Every route here calls the same service function, with\nthe same arktype schema, as its tRPC twin.\n\nOnly part of the API is REST. The tRPC procedures without a twin (post.update,\npost.delete, health.ping, health.db) are RPC-only: call them through /trpc with the\ntyped tRPC client, or over gRPC."
+	},
+	"tags": [
+		{
+			"name": "Health"
+		},
+		{
+			"name": "Posts"
+		}
+	],
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Liveness: the process is up and serving HTTP.",
+				"description": "Checks nothing beyond the process itself; it answers without a database. Readiness (can it reach Postgres) is the tRPC procedure health.db.",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "The process is up, and for how many seconds.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts": {
+			"get": {
+				"operationId": "listPosts",
+				"summary": "Posts, newest first. The REST twin of post.list.",
+				"description": "limit defaults to 20 and may not exceed 100.",
+				"tags": [
+					"Posts"
+				],
+				"parameters": [
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"maximum": 100,
+							"minimum": 1
+						}
+					},
+					{
+						"name": "publishedOnly",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "At most `limit` posts.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PostList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "limit is not an integer from 1 to 100, or publishedOnly is not true or false.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "The database failed. The body carries the request id and nothing else.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "createPost",
+				"summary": "Create a post, unpublished unless told otherwise. The REST twin of post.create.",
+				"tags": [
+					"Posts"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"maxLength": 10000,
+										"minLength": 1
+									},
+									"title": {
+										"type": "string",
+										"maxLength": 200,
+										"minLength": 1
+									},
+									"published": {
+										"type": "boolean"
+									}
+								},
+								"required": [
+									"body",
+									"title"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The new post.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body is not JSON, or a field is missing, empty or too long.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "The database failed. The body carries the request id and nothing else.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts/{id}": {
+			"get": {
+				"operationId": "getPost",
+				"summary": "One post. The REST twin of post.byId.",
+				"tags": [
+					"Posts"
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"description": "a UUID",
+						"schema": {
+							"anyOf": [
+								{
+									"type": "string",
+									"description": "a UUID",
+									"format": "uuid",
+									"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								},
+								{
+									"const": "00000000-0000-0000-0000-000000000000",
+									"description": "a UUID",
+									"format": "uuid"
+								},
+								{
+									"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+									"description": "a UUID",
+									"format": "uuid"
+								}
+							],
+							"description": "a UUID",
+							"format": "uuid"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The post.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The id is not a UUID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No post has that id.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "The database failed. The body carries the request id and nothing else.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorBody"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"const": "ok"
+					},
+					"uptime": {
+						"type": "number"
+					}
+				},
+				"required": [
+					"status",
+					"uptime"
+				],
+				"additionalProperties": false
+			},
+			"Post": {
+				"type": "object",
+				"properties": {
+					"body": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"id": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"published": {
+						"type": "boolean"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"body",
+					"createdAt",
+					"id",
+					"published",
+					"title",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"PostList": {
+				"type": "array",
+				"items": {
+					"$ref": "#/components/schemas/Post"
+				}
+			},
+			"ErrorBody": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "object",
+						"properties": {
+							"code": {
+								"enum": [
+									"BAD_REQUEST",
+									"CONFLICT",
+									"FORBIDDEN",
+									"INTERNAL",
+									"NOT_FOUND",
+									"UNAUTHORIZED"
+								]
+							},
+							"message": {
+								"type": "string"
+							},
+							"requestId": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"code",
+							"message",
+							"requestId"
+						],
+						"additionalProperties": false
+					}
+				},
+				"required": [
+					"error"
+				],
+				"additionalProperties": false
+			}
+		}
+	}
+}
