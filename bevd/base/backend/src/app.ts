@@ -5,6 +5,8 @@ import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { postRoutes } from "./rest/post";
+import { requestContext } from "./rest/request";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
@@ -28,10 +30,7 @@ export function createApp({ db, log: root }: AppDeps) {
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
 			// which is strictly more useful. See the note on `.mount` below.
-			.derive(({ request }) => ({
-				requestId: requestIdFrom(request.headers.get("x-request-id")),
-				startedAt: performance.now(),
-			}))
+			.use(requestContext)
 			.onAfterHandle(({ set, requestId }) => {
 				set.headers["x-request-id"] = requestId;
 			})
@@ -51,12 +50,19 @@ export function createApp({ db, log: root }: AppDeps) {
 				);
 			})
 			.onError(({ code, error, path, requestId }) => {
+				// The REST routes map and log their own errors; see rest/errors.ts.
+				if (path.startsWith("/api/v1")) return;
+
 				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
 
 			// A plain Elysia REST route. Elysia and tRPC share the same server - use REST
 			// for what the browser or a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
+
+			// REST twins of the core post procedures, for clients without a tRPC client.
+			// Same services, same arktype schemas; see rest/post.ts.
+			.use(postRoutes({ db, log: root }))
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//
