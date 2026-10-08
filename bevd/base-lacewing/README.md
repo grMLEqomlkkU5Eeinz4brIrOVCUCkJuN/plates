@@ -119,14 +119,15 @@ The routes are described as data in `src/openapi/` (registry, one file per area)
 OpenAPI 3.1 document is built from arktype's `toJsonSchema()`. 3.1, because that is the
 JSON Schema dialect arktype emits. Outside production, `/docs` serves a Scalar page over
 it and `/docs.json` the document itself. `bun run --cwd backend openapi` writes the
-committed `backend/openapi.json`; it imports the services, so it needs `backend/.env`.
+committed `backend/openapi.json`. It needs no `.env`: the registry imports only the
+arktype input objects (`src/models/`) and the response schemas, never `config/env`.
 The tests fail when the file is stale, when a route and its description disagree, or when
 any response in the suite does not match what the document promises.
 
 ## Tests
 
 ```sh
-bun run test    # 70 backend, 10 frontend
+bun run test    # 71 backend, 10 frontend
 ```
 
 Everything `base-jwt` pinned down (ownership, escalation attempts, rotation, replay,
