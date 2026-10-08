@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { z } from "zod";
 import { createError } from "./errorHandler";
 
 type RequestLocation = "body" | "query" | "params";
 
-interface ValidationSchema {
+export interface ValidationSchema {
 	body?: z.ZodSchema;
 	query?: z.ZodSchema;
 	params?: z.ZodSchema;
@@ -14,8 +14,18 @@ const formatZodError = (error: z.ZodError): string => {
 	return z.prettifyError(error);
 };
 
-export const validate = (schema: ValidationSchema) => {
-	return (req: Request, _res: Response, next: NextFunction): void => {
+/**
+ * The schemas ride on the middleware so the openapi tests can check that a
+ * route's description holds the very objects its validator runs.
+ */
+export const validate = (
+	schema: ValidationSchema
+): RequestHandler & { schema: ValidationSchema } => {
+	const middleware = (
+		req: Request,
+		_res: Response,
+		next: NextFunction
+	): void => {
 		const locations: RequestLocation[] = ["body", "query", "params"];
 
 		for (const location of locations) {
@@ -32,7 +42,13 @@ export const validate = (schema: ValidationSchema) => {
 				);
 			}
 			if (location === "query") {
-				Object.assign(req.query, result.data);
+				// Express 5's req.query is a getter that parses the URL afresh
+				// on every read, so writing into it is lost; shadow it instead
+				// so handlers see the coerced values and defaults.
+				Object.defineProperty(req, "query", {
+					value: result.data,
+					writable: true,
+				});
 			} else {
 				req[location] = result.data;
 			}
@@ -40,4 +56,5 @@ export const validate = (schema: ValidationSchema) => {
 
 		next();
 	};
+	return Object.assign(middleware, { schema });
 };

@@ -41,11 +41,59 @@ describe("User Routes", () => {
 	});
 
 	describe("GET /api/v1/users", () => {
-		it("should return array of users", async () => {
+		it("returns the first page with the default limit", async () => {
 			const response = await request(app).get("/api/v1/users");
 
 			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			expect(response.body).toMatchObject({ limit: 20, offset: 0 });
+			expect(Array.isArray(response.body.items)).toBe(true);
+		});
+
+		it("pages by limit and offset", async () => {
+			for (const name of ["A", "B", "C"]) {
+				await request(app)
+					.post("/api/v1/users")
+					.send({ email: `${name}@example.com`, name });
+			}
+			const before = (await request(app).get("/api/v1/users?limit=100"))
+				.body.total as number;
+
+			const response = await request(app).get(
+				`/api/v1/users?limit=2&offset=${before - 3}`
+			);
+
+			expect(response.status).toBe(200);
+			expect(response.body.total).toBe(before);
+			expect(
+				response.body.items.map((u: { name: string }) => u.name)
+			).toEqual(["A", "B"]);
+		});
+
+		it("returns an empty page past the end", async () => {
+			const response = await request(app).get(
+				"/api/v1/users?offset=100000"
+			);
+
+			expect(response.status).toBe(200);
+			expect(response.body.items).toEqual([]);
+		});
+
+		it.each(["limit=0", "limit=101", "limit=1.5", "offset=-1", "limit=x"])(
+			"rejects %s",
+			async (query) => {
+				const response = await request(app).get(
+					`/api/v1/users?${query}`
+				);
+
+				expect(response.status).toBe(400);
+			}
+		);
+
+		it("accepts limit=100", async () => {
+			const response = await request(app).get("/api/v1/users?limit=100");
+
+			expect(response.status).toBe(200);
+			expect(response.body.limit).toBe(100);
 		});
 	});
 

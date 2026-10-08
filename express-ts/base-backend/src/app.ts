@@ -2,7 +2,7 @@ import express, { Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec } from "./config/swagger";
+import { buildOpenApiDocument } from "./openapi";
 import { env } from "./config/env";
 import { httpLogger } from "./middleware/httpLogger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
@@ -34,9 +34,12 @@ export const createApp = (): Express => {
 	// HTTP logging
 	app.use(httpLogger);
 
-	// API documentation
-	app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-	app.get("/docs.json", (_req, res) => res.json(swaggerSpec));
+	// API documentation, built from the route descriptions in src/openapi
+	if (env.NODE_ENV !== "production") {
+		const document = buildOpenApiDocument();
+		app.use("/docs", swaggerUi.serve, swaggerUi.setup(document));
+		app.get("/docs.json", (_req, res) => res.json(document));
+	}
 
 	// Routes (handles /api/v1, etc.)
 	app.use(routes);

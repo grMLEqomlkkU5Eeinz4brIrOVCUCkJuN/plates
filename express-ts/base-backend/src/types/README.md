@@ -28,7 +28,7 @@ src/
 ├── types/           # Global type definitions
 │   └── express.d.ts
 └── utils/           # Utility functions
-    ├── asyncHandler.ts
+    ├── helpers.ts
     └── logger.ts
 ```
 

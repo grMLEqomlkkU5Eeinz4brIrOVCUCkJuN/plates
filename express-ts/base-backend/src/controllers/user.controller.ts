@@ -1,5 +1,10 @@
 import { Request, Response } from "express";
-import { User, CreateUserData, UpdateUserData } from "../models/user.model";
+import {
+	User,
+	CreateUserData,
+	UpdateUserData,
+	ListUsersQuery,
+} from "../models/user.model";
 import { createError } from "../middleware/errorHandler";
 
 // In-memory store for demo purposes - replace with your database
@@ -13,9 +18,13 @@ export const createUser = (req: Request, res: Response): void => {
 	res.status(201).json(user.toJSON());
 };
 
-export const getUsers = (_req: Request, res: Response): void => {
-	const allUsers = Array.from(users.values()).map((u) => u.toJSON());
-	res.json(allUsers);
+export const getUsers = (req: Request, res: Response): void => {
+	const { limit, offset } = req.query as unknown as ListUsersQuery;
+	const items = Array.from(users.values())
+		.slice(offset, offset + limit)
+		.map((u) => u.toJSON());
+
+	res.json({ items, total: users.size, limit, offset });
 };
 
 export const getUserById = (

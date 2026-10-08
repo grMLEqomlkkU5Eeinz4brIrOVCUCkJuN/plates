@@ -27,7 +27,7 @@ and frontend, and why each piece is there - read it if you are choosing between 
 
 | Template                    | Auth                  | Notes                            |
 | --------------------------- | --------------------- | -------------------------------- |
-| `express-ts/base-backend`    | none                  | Express + TypeScript. Uses an `asyncHandler` wrapper for route errors. |
+| `express-ts/base-backend`    | none                  | Express + TypeScript. No async wrapper: Express 5 forwards rejected handlers to the error handler. |
 | `express-ts/base-backend-new`| none                  | Same, without the `asyncHandler` wrapper. |
 | `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
 | `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |

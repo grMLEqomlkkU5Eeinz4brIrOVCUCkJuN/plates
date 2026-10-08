@@ -1,6 +1,6 @@
 # Express TypeScript Backend Template
 
-This is a simple Express.js backend template with TypeScript, Zod validation, Winston logging, Swagger docs, and Jest testing. It is not specific to any tech stack.
+This is a simple Express.js backend template with TypeScript, Zod validation, Winston logging, OpenAPI docs generated from the zod schemas, and Jest testing. It is not specific to any tech stack.
 
 ## Quick Start
 
@@ -25,15 +25,17 @@ npm start
 .
 ├── Dockerfile
 ├── eslint.config.mjs
+├── docs
+│   └── openapi-inventory.md
 ├── jest.config.ts
+├── openapi.json
 ├── package.json
 ├── package-lock.json
 ├── README.md
 ├── src
 │   ├── app.ts
 │   ├── config
-│   │   ├── env.ts
-│   │   └── swagger.ts
+│   │   └── env.ts
 │   ├── controllers
 │   │   ├── health.controller.ts
 │   │   └── user.controller.ts
@@ -46,6 +48,16 @@ npm start
 │   │   ├── __tests__
 │   │   │   └── user.model.test.ts
 │   │   └── user.model.ts
+│   ├── openapi
+│   │   ├── __tests__
+│   │   │   └── openapi.test.ts
+│   │   ├── document.ts
+│   │   ├── index.ts
+│   │   ├── paths
+│   │   │   ├── health.ts
+│   │   │   └── users.ts
+│   │   ├── registry.ts
+│   │   └── responseCheck.ts
 │   ├── routes
 │   │   ├── api
 │   │   │   └── v1
@@ -56,6 +68,8 @@ npm start
 │   │   │       │   └── user.routes.test.ts
 │   │   │       └── user.routes.ts
 │   │   └── index.ts
+│   ├── scripts
+│   │   └── openapi.ts
 │   ├── test
 │   │   ├── app.ts
 │   │   └── setup.ts
@@ -63,11 +77,10 @@ npm start
 │   │   ├── express.d.ts
 │   │   └── README.md
 │   └── utils
-│       ├── asyncHandler.ts
+│       ├── helpers.ts
 │       └── logger.ts
 └── tsconfig.json
 
-14 directories, 31 files
 ```
 
 ## Adding a New Feature
@@ -97,6 +110,10 @@ export const createProductSchema = productSchema.omit({
 });
 
 export const updateProductSchema = createProductSchema.partial();
+
+export const productIdParamsSchema = z.object({
+	id: z.string().uuid("Invalid product ID"),
+});
 
 // Derive types from schemas
 export type ProductData = z.infer<typeof productSchema>;
@@ -158,7 +175,7 @@ import {
 	CreateProductData,
 	UpdateProductData,
 } from "../models/product.model";
-import { AppError } from "../middleware/errorHandler";
+import { createError } from "../middleware/errorHandler";
 
 // Replace with your database
 const products = new Map<string, Product>();
@@ -178,7 +195,7 @@ export const getProducts = (_req: Request, res: Response): void => {
 export const getProductById = (req: Request, res: Response): void => {
 	const product = products.get(req.params.id);
 	if (!product) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	res.json(product.toJSON());
 };
@@ -186,7 +203,7 @@ export const getProductById = (req: Request, res: Response): void => {
 export const updateProduct = (req: Request, res: Response): void => {
 	const product = products.get(req.params.id);
 	if (!product) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	product.update(req.body as UpdateProductData);
 	res.json(product.toJSON());
@@ -194,7 +211,7 @@ export const updateProduct = (req: Request, res: Response): void => {
 
 export const deleteProduct = (req: Request, res: Response): void => {
 	if (!products.delete(req.params.id)) {
-		throw new AppError(404, "Product not found");
+		throw createError(404, "Product not found");
 	}
 	res.status(204).send();
 };
@@ -206,13 +223,12 @@ Create `src/routes/api/v1/product.routes.ts`:
 
 ```typescript
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import {
 	createProductSchema,
 	updateProductSchema,
+	productIdParamsSchema,
 } from "../../../models/product.model";
-import asyncHandler from "../../../utils/asyncHandler";
 import {
 	createProduct,
 	getProducts,
@@ -223,114 +239,23 @@ import {
 
 const router = Router();
 
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid product ID"),
-	}),
-};
+router.get("/", getProducts);
 
-/**
- * @swagger
- * /products:
- *   get:
- *     summary: Get all products
- *     tags: [Products]
- *     responses:
- *       200:
- *         description: List of products
- */
-router.get("/", asyncHandler(getProducts));
-
-/**
- * @swagger
- * /products:
- *   post:
- *     summary: Create a product
- *     tags: [Products]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, price]
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *     responses:
- *       201:
- *         description: Product created
- */
 router.post(
 	"/",
 	validate({ body: createProductSchema }),
-	asyncHandler(createProduct)
+	createProduct
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   get:
- *     summary: Get product by ID
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product found
- *       404:
- *         description: Product not found
- */
-router.get("/:id", validate(idParamSchema), asyncHandler(getProductById));
+router.get("/:id", validate({ params: productIdParamsSchema }), getProductById);
 
-/**
- * @swagger
- * /products/{id}:
- *   patch:
- *     summary: Update product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product updated
- */
 router.patch(
 	"/:id",
-	validate({ ...idParamSchema, body: updateProductSchema }),
-	asyncHandler(updateProduct)
+	validate({ params: productIdParamsSchema, body: updateProductSchema }),
+	updateProduct
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   delete:
- *     summary: Delete product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       204:
- *         description: Product deleted
- */
-router.delete("/:id", validate(idParamSchema), asyncHandler(deleteProduct));
+router.delete("/:id", validate({ params: productIdParamsSchema }), deleteProduct);
 
 export default router;
 ```
@@ -354,7 +279,65 @@ router.use("/products", productRoutes); // Add this
 export default router;
 ```
 
-### Step 5: Add Tests
+### Step 5: Describe the Routes
+
+Every route is described once in `src/openapi/paths/`, with the same zod
+objects its validator runs. The tests fail if a mounted route has no
+description, if a description holds a different schema object than the
+validator, or if a response body does not match it.
+
+Create `src/openapi/paths/products.ts`:
+
+```typescript
+import { z } from "zod";
+import {
+	createProductSchema,
+	updateProductSchema,
+	productIdParamsSchema,
+	productSchema,
+} from "../../models/product.model";
+import { describeRoutes, named } from "../registry";
+
+const product = named("Product", productSchema);
+
+describeRoutes([
+	{
+		method: "get",
+		path: "/products",
+		operationId: "getProducts",
+		summary: "Get all products",
+		tags: ["Products"],
+		access: "open",
+		responses: {
+			200: { description: "List of products", schema: z.array(product) },
+		},
+	},
+	{
+		method: "post",
+		path: "/products",
+		operationId: "createProduct",
+		summary: "Create a product",
+		tags: ["Products"],
+		access: "open",
+		request: { body: createProductSchema },
+		responses: {
+			201: { description: "Product created", schema: product },
+			400: "Validation error",
+		},
+	},
+	// ...one entry per route, error statuses as a string
+]);
+```
+
+Import it in `src/openapi/index.ts`, add the router to `mounts` in
+`src/openapi/__tests__/openapi.test.ts`, then regenerate the committed
+`openapi.json`:
+
+```bash
+npm run openapi
+```
+
+### Step 6: Add Tests
 
 Create `src/models/__tests__/product.model.test.ts`:
 
@@ -433,7 +416,7 @@ describe("Product Routes", () => {
 });
 ```
 
-### Step 6: Run Tests
+### Step 7: Run Tests
 
 ```bash
 npm test
@@ -463,22 +446,29 @@ npm test
 | `npm test`              | Run all tests         |
 | `npm run test:watch`    | Watch mode            |
 | `npm run test:coverage` | With coverage         |
+| `npm run openapi`       | Write `openapi.json` from the route descriptions |
 
 ## API Documentation
 
-Swagger UI available at `http://localhost:3000/docs` when the server is running.
+Outside production, Swagger UI is at `http://localhost:3000/docs` and the
+OpenAPI 3.0.3 document at `/docs.json`. Both are built from the route
+descriptions in `src/openapi/paths/`; `openapi.json` is the committed copy.
 
 ## Key Patterns
 
 ### Error Handling
 
-Throw `AppError` for operational errors:
+Throw an [http-errors](https://github.com/jshttp/http-errors) error, re-exported
+from `middleware/errorHandler` as `createError`. `errorHandler` answers with its
+status and `{ success: false, message }`. A 4xx message reaches the client; a
+5xx or any other thrown error becomes "Internal server error", and the full
+error is logged either way.
 
 ```typescript
-import { AppError } from "../middleware/errorHandler";
+import { createError } from "../middleware/errorHandler";
 
-throw new AppError(404, "Resource not found");
-throw new AppError(400, "Invalid input");
+throw createError(404, "Resource not found");
+throw createError(400, "Invalid input");
 ```
 
 ### Validation
@@ -495,18 +485,14 @@ router.get("/", validate({ query: filterSchema }), handler);
 
 ### Async Handlers
 
-Wrap async controllers with `asyncHandler`:
+Express 5 forwards a rejected promise from a handler to the error handler,
+so async controllers need no wrapper:
 
 ```typescript
-import asyncHandler from "../utils/asyncHandler";
-
-router.get(
-	"/",
-	asyncHandler(async (req, res) => {
-		const data = await someAsyncOperation();
-		res.json(data);
-	})
-);
+router.get("/", async (req, res) => {
+	const data = await someAsyncOperation();
+	res.json(data);
+});
 ```
 
 ### Logging

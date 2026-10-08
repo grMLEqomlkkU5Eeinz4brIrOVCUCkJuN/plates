@@ -8,15 +8,32 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({
-	id: true,
-	createdAt: true,
-	updatedAt: true,
+// Named here so the validator and the openapi document share one object.
+export const createUserSchema = userSchema
+	.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+	})
+	.meta({ id: "CreateUser" });
+export const updateUserSchema = createUserSchema
+	.partial()
+	.meta({ id: "UpdateUser" });
+
+// Rejects a limit over 100 rather than clamping it, so a client never
+// silently receives less than it asked for.
+export const listUsersQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(100).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
 });
-export const updateUserSchema = createUserSchema.partial();
+
+export const userIdParamsSchema = z.object({
+	id: z.string().uuid("Invalid user ID format"),
+});
 
 export type UserData = z.infer<typeof userSchema>;
 export type CreateUserData = z.infer<typeof createUserSchema>;
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
 
 export class User {
