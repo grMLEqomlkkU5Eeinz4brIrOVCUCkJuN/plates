@@ -1,10 +1,5 @@
-import {
-	deleteUser,
-	listUsers,
-	SetRoleInput,
-	setUserRole,
-	UserIdInput,
-} from "../../services/user.service";
+import { SetRoleInput, UserIdInput } from "../../models/user";
+import { deleteUser, listUsers, setUserRole } from "../../services/user.service";
 import { adminProcedure, router } from "../trpc";
 
 /**

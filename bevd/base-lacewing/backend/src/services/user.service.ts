@@ -1,17 +1,10 @@
-import { type } from "arktype";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../auth/actor";
 import { revokeAllSessions } from "../auth/sessions";
 import { type PublicUser, toPublicUser, users } from "../db/schema";
 import { AppError, parseInput } from "../lib/errors";
+import { SetRoleInput, UserIdInput } from "../models/user";
 import type { ServiceCtx } from "./context";
-
-export const SetRoleInput = type({
-	userId: "string.uuid",
-	role: "'user' | 'admin'",
-});
-
-export const UserIdInput = type({ userId: "string.uuid" });
 
 /**
  * Admin-only, all of it.

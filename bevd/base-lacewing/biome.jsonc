@@ -9,7 +9,13 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/dist", "!**/node_modules", "!backend/drizzle"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!backend/drizzle",
+			"!backend/openapi.json"
+		]
 	},
 	"formatter": {
 		"enabled": true,

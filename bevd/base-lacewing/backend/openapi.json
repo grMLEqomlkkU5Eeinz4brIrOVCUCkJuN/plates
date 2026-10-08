@@ -1,0 +1,942 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "bevd-lacewing API",
+		"version": "1",
+		"description": "The REST surface of the backend. The full API is tRPC, mounted at /trpc; the routes here are REST twins of a few of its procedures (each operation names its procedure in x-trpc-procedure), calling the same services with the same validation and the same lacewing auth.\n\nRPC-only, with no REST twin: health.ping, health.db, post.update, post.delete, user.list, user.setRole, user.delete. Reach them through tRPC, or through gRPC where proto/ defines them.\n\nEvery error body is the Error schema: a stable code from the server's error vocabulary, a message, and the requestId the server logged it under."
+	},
+	"tags": [
+		{
+			"name": "Health"
+		},
+		{
+			"name": "Auth"
+		},
+		{
+			"name": "Posts"
+		}
+	],
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Liveness: the process is up. Touches no dependency.",
+				"description": "Readiness - whether Postgres answers - is the tRPC procedure health.db, which has no REST twin.",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "The process is serving.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/register": {
+			"post": {
+				"operationId": "postRegister",
+				"summary": "Create an account with the user role and sign it in.",
+				"description": "The access and refresh tokens go out as httpOnly cookies, with a fresh csrf_token cookie beside them; the body carries only the user.",
+				"tags": [
+					"Auth"
+				],
+				"x-trpc-procedure": "auth.register",
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": [],
+						"csrfCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"pattern": "^[\\w%+.-]+@[\\d.A-Za-z-]+\\.[A-Za-z]{2,}$",
+										"format": "email"
+									},
+									"name": {
+										"type": "string",
+										"maxLength": 100,
+										"minLength": 1
+									},
+									"password": {
+										"type": "string",
+										"maxLength": 128,
+										"minLength": 8
+									}
+								},
+								"required": [
+									"email",
+									"name",
+									"password"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The new user.",
+						"headers": {
+							"Set-Cookie": {
+								"description": "The session cookies, set or cleared.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body failed validation.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "A cookie-authenticated request without its CSRF pair.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "That email is already registered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/login": {
+			"post": {
+				"operationId": "postLogin",
+				"summary": "Sign in with email and password.",
+				"description": "The access and refresh tokens go out as httpOnly cookies, with a fresh csrf_token cookie beside them; the body carries only the user.",
+				"tags": [
+					"Auth"
+				],
+				"x-trpc-procedure": "auth.login",
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": [],
+						"csrfCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"pattern": "^[\\w%+.-]+@[\\d.A-Za-z-]+\\.[A-Za-z]{2,}$",
+										"format": "email"
+									},
+									"password": {
+										"type": "string",
+										"maxLength": 128,
+										"minLength": 1
+									}
+								},
+								"required": [
+									"email",
+									"password"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The signed-in user.",
+						"headers": {
+							"Set-Cookie": {
+								"description": "The session cookies, set or cleared.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body failed validation.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Wrong email or password; the message does not say which.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "A cookie-authenticated request without its CSRF pair.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/refresh": {
+			"post": {
+				"operationId": "postRefresh",
+				"summary": "Trade the refresh_token cookie for a new session, revoking the old token.",
+				"description": "The access and refresh tokens go out as httpOnly cookies, with a fresh csrf_token cookie beside them; the body carries only the user. A refresh token works once: the second use of the same one is a 401.",
+				"tags": [
+					"Auth"
+				],
+				"x-trpc-procedure": "auth.refresh",
+				"security": [
+					{
+						"refreshCookie": []
+					},
+					{
+						"refreshCookie": [],
+						"accessCookie": [],
+						"csrfCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The user the session belongs to.",
+						"headers": {
+							"Set-Cookie": {
+								"description": "The session cookies, set or cleared.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No refresh token, or one that is revoked, expired or unknown.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "A cookie-authenticated request without its CSRF pair.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/logout": {
+			"post": {
+				"operationId": "postLogout",
+				"summary": "Revoke the refresh_token cookie's token, if one came, and clear the cookies.",
+				"description": "Signs out this browser only; other sessions of the same user stay valid.",
+				"tags": [
+					"Auth"
+				],
+				"x-trpc-procedure": "auth.logout",
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": [],
+						"csrfCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Always ok, with or without a session.",
+						"headers": {
+							"Set-Cookie": {
+								"description": "The session cookies, set or cleared.",
+								"schema": {
+									"type": "string"
+								}
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Ok"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "A cookie-authenticated request without its CSRF pair.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/me": {
+			"get": {
+				"operationId": "getMe",
+				"summary": "The signed-in user.",
+				"tags": [
+					"Auth"
+				],
+				"x-trpc-procedure": "auth.me",
+				"security": [
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The user the access token names.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Signed out, or the account no longer exists.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts": {
+			"get": {
+				"operationId": "getPosts",
+				"summary": "Newest first: published posts, plus the caller's own drafts (an admin sees all).",
+				"tags": [
+					"Posts"
+				],
+				"x-trpc-procedure": "post.list",
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"maximum": 100,
+							"minimum": 1
+						}
+					},
+					{
+						"name": "publishedOnly",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "At most `limit` posts.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Post"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "A query value failed validation.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "postPost",
+				"summary": "Write a post. The author is the caller; the body cannot name another.",
+				"tags": [
+					"Posts"
+				],
+				"x-trpc-procedure": "post.create",
+				"security": [
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": [],
+						"csrfCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"maxLength": 10000,
+										"minLength": 1
+									},
+									"title": {
+										"type": "string",
+										"maxLength": 200,
+										"minLength": 1
+									},
+									"published": {
+										"type": "boolean"
+									}
+								},
+								"required": [
+									"body",
+									"title"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The post.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body failed validation.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Signed out.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "A cookie-authenticated request without its CSRF pair.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts/{id}": {
+			"get": {
+				"operationId": "getPost",
+				"summary": "One post.",
+				"tags": [
+					"Posts"
+				],
+				"x-trpc-procedure": "post.byId",
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"anyOf": [
+								{
+									"type": "string",
+									"description": "a UUID",
+									"format": "uuid",
+									"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								},
+								{
+									"const": "00000000-0000-0000-0000-000000000000",
+									"description": "a UUID",
+									"format": "uuid"
+								},
+								{
+									"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+									"description": "a UUID",
+									"format": "uuid"
+								}
+							],
+							"description": "a UUID",
+							"format": "uuid"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The post.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The id is not a UUID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No such post, or a draft the caller may not see - the two are not told apart.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "An unexpected failure. The body carries only the requestId to quote.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"User": {
+				"type": "object",
+				"properties": {
+					"createdAt": {
+						"type": "string",
+						"description": "an ISO 8601 timestamp",
+						"pattern": "^([+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-3])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))(T((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24:?00)([,.]\\d+(?!:))?)?(\\17[0-5]\\d([,.]\\d+)?)?([Zz]|([+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+					},
+					"email": {
+						"type": "string"
+					},
+					"id": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"role": {
+						"enum": [
+							"admin",
+							"user"
+						]
+					},
+					"updatedAt": {
+						"type": "string",
+						"description": "an ISO 8601 timestamp",
+						"pattern": "^([+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-3])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))(T((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24:?00)([,.]\\d+(?!:))?)?(\\17[0-5]\\d([,.]\\d+)?)?([Zz]|([+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+					}
+				},
+				"required": [
+					"createdAt",
+					"email",
+					"id",
+					"name",
+					"role",
+					"updatedAt"
+				]
+			},
+			"Post": {
+				"type": "object",
+				"properties": {
+					"authorId": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"body": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"description": "an ISO 8601 timestamp",
+						"pattern": "^([+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-3])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))(T((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24:?00)([,.]\\d+(?!:))?)?(\\17[0-5]\\d([,.]\\d+)?)?([Zz]|([+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+					},
+					"id": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"published": {
+						"type": "boolean"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updatedAt": {
+						"type": "string",
+						"description": "an ISO 8601 timestamp",
+						"pattern": "^([+-]?\\d{4}(?!\\d{2}\\b))((-?)((0[1-9]|1[0-2])(\\3([12]\\d|0[1-9]|3[01]))?|W([0-4]\\d|5[0-3])(-?[1-7])?|(00[1-9]|0[1-9]\\d|[12]\\d{2}|3([0-5]\\d|6[1-6])))(T((([01]\\d|2[0-3])((:?)[0-5]\\d)?|24:?00)([,.]\\d+(?!:))?)?(\\17[0-5]\\d([,.]\\d+)?)?([Zz]|([+-])([01]\\d|2[0-3]):?([0-5]\\d)?)?)?)?$"
+					}
+				},
+				"required": [
+					"authorId",
+					"body",
+					"createdAt",
+					"id",
+					"published",
+					"title",
+					"updatedAt"
+				]
+			},
+			"Ok": {
+				"type": "object",
+				"properties": {
+					"ok": {
+						"const": true
+					}
+				},
+				"required": [
+					"ok"
+				]
+			},
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"const": "ok"
+					},
+					"uptime": {
+						"type": "number"
+					}
+				},
+				"required": [
+					"status",
+					"uptime"
+				]
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "object",
+						"properties": {
+							"code": {
+								"enum": [
+									"BAD_REQUEST",
+									"CONFLICT",
+									"FORBIDDEN",
+									"INTERNAL",
+									"NOT_FOUND",
+									"UNAUTHORIZED"
+								]
+							},
+							"message": {
+								"type": "string"
+							},
+							"requestId": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"code",
+							"message",
+							"requestId"
+						]
+					}
+				},
+				"required": [
+					"error"
+				]
+			}
+		},
+		"securitySchemes": {
+			"accessCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "access_token",
+				"description": "The access token (a lacewing at+jwt, HS256), set httpOnly, Secure and SameSite by the auth routes. A browser sends it without being asked. When both arrive, the cookie wins over a bearer header."
+			},
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "The same access token in `Authorization: Bearer <token>` (strict RFC 6750), for callers that are not a browser. These REST routes never hand a token out in a body; gRPC's AuthService does."
+			},
+			"refreshCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "refresh_token",
+				"description": "An opaque, single-use refresh token, httpOnly. Only refresh and logout read it."
+			},
+			"csrfCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "csrf_token",
+				"description": "The readable half of the double-submit pair, minted with every session. A second csrf_token cookie in the same request is refused outright."
+			},
+			"csrfHeader": {
+				"type": "apiKey",
+				"in": "header",
+				"name": "x-csrf-token",
+				"description": "Must equal the csrf_token cookie on every non-GET request whose access token came in the cookie. Missing or different is a 403 before the body is read."
+			}
+		}
+	}
+}

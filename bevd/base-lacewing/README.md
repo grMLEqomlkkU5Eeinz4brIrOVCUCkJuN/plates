@@ -94,10 +94,40 @@ The header now goes through lacewing's `parseBearer`, so it is stricter than bef
 exactly `Bearer <token>`, exact case, one token. `bearer` or two tokens in one header
 resolve to anonymous.
 
+## REST twins and the OpenAPI document
+
+tRPC at `/trpc` is the whole API. A few procedures also have a REST twin under `/api/v1`,
+for callers that will not speak tRPC. Each twin calls the same service function and
+validates with the same arktype object as its procedure, behind the same lacewing auth
+(`http/auth.ts`) and the same CSRF rule:
+
+| Route | Procedure |
+| --- | --- |
+| `POST /api/v1/auth/register` | `auth.register` |
+| `POST /api/v1/auth/login` | `auth.login` |
+| `POST /api/v1/auth/refresh` | `auth.refresh` |
+| `POST /api/v1/auth/logout` | `auth.logout` |
+| `GET /api/v1/auth/me` | `auth.me` |
+| `GET /api/v1/posts` | `post.list` |
+| `GET /api/v1/posts/:id` | `post.byId` |
+| `POST /api/v1/posts` | `post.create` |
+
+Every other procedure (`post.update`, `post.delete`, the admin `user.*`, `health.*`) is
+RPC-only. Errors come back as `{ error: { code, message, requestId } }`.
+
+The routes are described as data in `src/openapi/` (registry, one file per area), and the
+OpenAPI 3.1 document is built from arktype's `toJsonSchema()`. 3.1, because that is the
+JSON Schema dialect arktype emits. Outside production, `/docs` serves a Scalar page over
+it and `/docs.json` the document itself. `bun run --cwd backend openapi` writes the
+committed `backend/openapi.json`. It needs no `.env`: the registry imports only the
+arktype input objects (`src/models/`) and the response schemas, never `config/env`.
+The tests fail when the file is stale, when a route and its description disagree, or when
+any response in the suite does not match what the document promises.
+
 ## Tests
 
 ```sh
-bun run test    # 47 backend, 10 frontend
+bun run test    # 71 backend, 10 frontend
 ```
 
 Everything `base-jwt` pinned down (ownership, escalation attempts, rotation, replay,

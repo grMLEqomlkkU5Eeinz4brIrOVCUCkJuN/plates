@@ -1,10 +1,13 @@
 import { cors } from "@elysiajs/cors";
-import { openapi } from "@elysiajs/openapi";
+import { type ElysiaOpenAPIConfig, openapi } from "@elysiajs/openapi";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
+import { requestContext } from "./http/request";
 import { type Logger, requestIdFrom } from "./lib/logger";
+import { buildOpenApiDocument } from "./openapi";
+import { restApi } from "./rest";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
@@ -23,15 +26,29 @@ export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-			.use(openapi({ path: "/openapi" }))
+
+			// A Scalar page at /docs over the document at /docs.json, outside production. The
+			// document is src/openapi/'s - the same one `bun run openapi` commits as
+			// openapi.json - not the plugin's own: it can only infer Elysia routes, the
+			// arktype-backed REST twins describe themselves through the registry, and tRPC is
+			// RPC-only. So every route is excluded from inference and the plugin is handed the
+			// whole document; the test suite holds /docs.json equal to openapi.json.
+			.use(
+				openapi({
+					enabled: env.NODE_ENV !== "production",
+					path: "/docs",
+					specPath: "/docs.json",
+					// The plugin types `documentation` as OpenAPI 3.0; this document is 3.1 (see
+					// openapi/document.ts), which it passes through untouched.
+					documentation: buildOpenApiDocument() as ElysiaOpenAPIConfig["documentation"],
+					exclude: { paths: [/.*/] },
+				}),
+			)
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
 			// which is strictly more useful. See the note on `.mount` below.
-			.derive(({ request }) => ({
-				requestId: requestIdFrom(request.headers.get("x-request-id")),
-				startedAt: performance.now(),
-			}))
+			.use(requestContext)
 			.onAfterHandle(({ set, requestId }) => {
 				set.headers["x-request-id"] = requestId;
 			})
@@ -50,12 +67,18 @@ export function createApp({ db, log: root }: AppDeps) {
 					"http",
 				);
 			})
+
+			// REST twins of the core procedures, under /api/v1. They map and log their own
+			// errors, so they are mounted before the catch-all below - an Elysia hook only
+			// reaches routes registered after it.
+			.use(restApi({ db, log: root }))
+
 			.onError(({ code, error, path, requestId }) => {
 				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
 
-			// A plain Elysia REST route. Elysia and tRPC share the same server - use REST for
-			// what the browser or a load balancer hits directly.
+			// A plain Elysia route. Elysia and tRPC share the same server - use plain routes
+			// for what a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.

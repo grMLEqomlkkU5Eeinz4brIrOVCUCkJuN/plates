@@ -2,6 +2,8 @@ import { stringifySetCookie } from "cookie";
 import { buildTokenCookie, clearTokenCookie } from "lacewing";
 import { accessTokenTtlSeconds } from "../auth/tokens";
 import { env } from "../config/env";
+import type { Session } from "../services/auth.service";
+import { generateCsrfToken } from "./csrf";
 
 export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
@@ -58,6 +60,18 @@ export function sessionCookies(
 			maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
 		}),
 	];
+}
+
+/**
+ * What both HTTP doors send back when a service hands them a Session: the two token
+ * cookies plus a fresh CSRF token with every session. The CSRF token rides in the one
+ * readable cookie, and mutations must echo it in the x-csrf-token header - see
+ * http/csrf.ts, the csrfGuard in trpc/trpc.ts and the one in rest/base.ts.
+ */
+export function cookiesForSession(
+	session: Pick<Session, "accessToken" | "refreshToken">,
+): string[] {
+	return sessionCookies(session.accessToken, session.refreshToken, generateCsrfToken());
 }
 
 /** Max-Age=0 tells the browser to drop them now, rather than trusting it to forget. */

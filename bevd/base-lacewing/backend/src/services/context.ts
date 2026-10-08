@@ -14,7 +14,7 @@ import type { Logger } from "../lib/logger";
  * Note what is *not* in it: no Request, no Headers, no cookies, no gRPC metadata. A
  * service cannot reach for a transport detail because it was never handed one - the actor
  * is the only thing it learns about who is calling, resolved at the edge from a cookie
- * (trpc/context.ts) or from metadata (grpc/metadata.ts).
+ * (http/auth.ts) or from metadata (grpc/metadata.ts).
  *
  * Both transports' own context types are supersets of this, so they pass themselves
  * straight in: `listPosts(ctx, input)` from a tRPC resolver type-checks because a tRPC
