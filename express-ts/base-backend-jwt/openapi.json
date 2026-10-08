@@ -13,6 +13,12 @@
 	],
 	"tags": [
 		{
+			"name": "Health"
+		},
+		{
+			"name": "Auth"
+		},
+		{
 			"name": "Users"
 		}
 	],
@@ -38,6 +44,205 @@
 			}
 		},
 		"schemas": {
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						]
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"status",
+					"timestamp"
+				],
+				"additionalProperties": false
+			},
+			"CsrfTokenResponse": {
+				"type": "object",
+				"properties": {
+					"csrfToken": {
+						"type": "string",
+						"description": "Send back as x-csrf-token on state-changing requests."
+					}
+				},
+				"required": [
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"LoginResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"user": {
+						"type": "object",
+						"properties": {
+							"userId": {
+								"type": "string"
+							},
+							"email": {
+								"type": "string",
+								"format": "email"
+							}
+						},
+						"required": [
+							"userId",
+							"email"
+						],
+						"additionalProperties": false
+					},
+					"csrfToken": {
+						"type": "string",
+						"description": "Send back as x-csrf-token on state-changing requests."
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"user",
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							false
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"stack": {
+						"type": "string",
+						"description": "Only when NODE_ENV is development."
+					}
+				},
+				"required": [
+					"success",
+					"message"
+				],
+				"additionalProperties": false
+			},
+			"LoginRequest": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"password": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"required": [
+					"email",
+					"password"
+				]
+			},
+			"LogoutResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"success",
+					"message"
+				],
+				"additionalProperties": false
+			},
+			"RefreshResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"csrfToken": {
+						"type": "string",
+						"description": "Send back as x-csrf-token on state-changing requests."
+					}
+				},
+				"required": [
+					"success",
+					"message",
+					"csrfToken"
+				],
+				"additionalProperties": false
+			},
+			"MeResponse": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"enum": [
+							true
+						]
+					},
+					"user": {
+						"type": "object",
+						"properties": {
+							"userId": {
+								"type": "string"
+							},
+							"email": {
+								"type": "string",
+								"format": "email"
+							},
+							"iat": {
+								"type": "integer"
+							},
+							"exp": {
+								"type": "integer"
+							}
+						},
+						"required": [
+							"userId",
+							"email",
+							"iat",
+							"exp"
+						],
+						"additionalProperties": false
+					}
+				},
+				"required": [
+					"success",
+					"user"
+				],
+				"additionalProperties": false
+			},
 			"User": {
 				"type": "object",
 				"properties": {
@@ -70,29 +275,6 @@
 					"createdAt",
 					"updatedAt"
 				]
-			},
-			"Error": {
-				"type": "object",
-				"properties": {
-					"success": {
-						"type": "boolean",
-						"enum": [
-							false
-						]
-					},
-					"message": {
-						"type": "string"
-					},
-					"stack": {
-						"type": "string",
-						"description": "Only when NODE_ENV is development."
-					}
-				},
-				"required": [
-					"success",
-					"message"
-				],
-				"additionalProperties": false
 			},
 			"CreateUser": {
 				"type": "object",
@@ -130,6 +312,213 @@
 		"parameters": {}
 	},
 	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Health check endpoint",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "Server is healthy",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/csrf-token": {
+			"get": {
+				"operationId": "getCsrfToken",
+				"summary": "Get CSRF token",
+				"description": "Returns a CSRF token for use in subsequent state-changing requests",
+				"tags": [
+					"Auth"
+				],
+				"responses": {
+					"200": {
+						"description": "CSRF token generated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CsrfTokenResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/login": {
+			"post": {
+				"operationId": "login",
+				"summary": "Login user",
+				"description": "Authenticates user and sets JWT cookies",
+				"tags": [
+					"Auth"
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/LoginRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Login successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LoginResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/logout": {
+			"post": {
+				"operationId": "logout",
+				"summary": "Logout user",
+				"description": "Clears JWT cookies",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"sessionCookie": [],
+						"csrfHeader": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Logout successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LogoutResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not authenticated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Invalid CSRF token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/refresh": {
+			"post": {
+				"operationId": "refresh",
+				"summary": "Refresh tokens",
+				"description": "Uses refresh token to generate new access and refresh tokens",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"refreshCookie": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Tokens refreshed",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RefreshResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Invalid or expired refresh token",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/me": {
+			"get": {
+				"operationId": "getMe",
+				"summary": "Get current user",
+				"description": "Returns the authenticated user's information",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"sessionCookie": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "User information",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/MeResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not authenticated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/users": {
 			"get": {
 				"operationId": "getUsers",
