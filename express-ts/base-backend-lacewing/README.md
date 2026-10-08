@@ -195,6 +195,9 @@ raw document at `/docs.json`, outside production only. `openapi.json` is the com
 copy; `npm test` fails when it is stale, when a mounted route is not described, and when
 a response in a route test does not match its description.
 
+`GET /api/v1/users` is paginated: `?limit=` (default 20, at most 100) and `?offset=`
+(default 0) return `{ items, total, limit, offset }`. Copy that shape for new list routes.
+
 ## Scaling notes
 
 - `MemoryRevocationStore` is per-process. Behind more than one instance, implement

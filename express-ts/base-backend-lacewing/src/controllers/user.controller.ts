@@ -24,7 +24,13 @@ export const getUsers = (req: Request, res: Response): void => {
 	// validate() replaced req.query with the parsed numbers; Express still
 	// types it as ParsedQs (strings), which does not overlap, hence unknown.
 	const { limit, offset } = req.query as unknown as ListUsersQuery;
-	res.json([...users.values()].slice(offset, offset + limit));
+	const all = [...users.values()];
+	res.json({
+		items: all.slice(offset, offset + limit),
+		total: all.length,
+		limit,
+		offset,
+	});
 };
 
 export const getUserById = (

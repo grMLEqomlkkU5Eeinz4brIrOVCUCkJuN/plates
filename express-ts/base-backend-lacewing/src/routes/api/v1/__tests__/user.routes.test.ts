@@ -85,7 +85,7 @@ describe("User Routes", () => {
 				.set(authed());
 
 			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			expect(Array.isArray(response.body.items)).toBe(true);
 		});
 
 		describe("pagination", () => {
@@ -105,29 +105,32 @@ describe("User Routes", () => {
 				const response = await list("");
 
 				expect(response.status).toBe(200);
-				expect(response.body).toHaveLength(20);
+				expect(response.body.items).toHaveLength(20);
+				expect(response.body).toMatchObject({ limit: 20, offset: 0 });
+				expect(response.body.total).toBeGreaterThanOrEqual(25);
 			});
 
 			it("returns the rest on the last, partial page", async () => {
 				const all = await list("?limit=100");
 				const tail = await list(`?limit=20&offset=20`);
 
-				expect(tail.body).toEqual(all.body.slice(20, 40));
-				expect(tail.body.length).toBe(all.body.length - 20);
+				expect(tail.body.items).toEqual(all.body.items.slice(20, 40));
+				expect(tail.body.items.length).toBe(all.body.total - 20);
 			});
 
 			it("pages without overlap", async () => {
 				const all = await list("?limit=100");
 				const second = await list("?limit=5&offset=5");
 
-				expect(second.body).toEqual(all.body.slice(5, 10));
+				expect(second.body.items).toEqual(all.body.items.slice(5, 10));
 			});
 
 			it("returns an empty page past the end", async () => {
 				const response = await list("?offset=100000");
 
 				expect(response.status).toBe(200);
-				expect(response.body).toEqual([]);
+				expect(response.body.items).toEqual([]);
+				expect(response.body.offset).toBe(100000);
 			});
 
 			it.each([
@@ -147,7 +150,8 @@ describe("User Routes", () => {
 				const response = await list("?limit=100");
 
 				expect(response.status).toBe(200);
-				expect(response.body.length).toBeLessThanOrEqual(100);
+				expect(response.body.limit).toBe(100);
+				expect(response.body.items.length).toBeLessThanOrEqual(100);
 			});
 		});
 	});

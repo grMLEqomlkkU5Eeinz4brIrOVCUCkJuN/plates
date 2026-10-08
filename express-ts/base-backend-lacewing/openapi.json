@@ -246,6 +246,34 @@
 				],
 				"additionalProperties": false
 			},
+			"UserPage": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/User"
+						}
+					},
+					"total": {
+						"type": "integer",
+						"description": "Users in all pages."
+					},
+					"limit": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"items",
+					"total",
+					"limit",
+					"offset"
+				],
+				"additionalProperties": false
+			},
 			"User": {
 				"type": "object",
 				"properties": {
@@ -576,10 +604,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "array",
-									"items": {
-										"$ref": "#/components/schemas/User"
-									}
+									"$ref": "#/components/schemas/UserPage"
 								}
 							}
 						}

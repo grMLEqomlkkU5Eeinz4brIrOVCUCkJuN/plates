@@ -10,6 +10,16 @@ import { describeRoutes, named } from "../registry";
 
 const user = named("User", userSchema);
 
+const userPage = named(
+	"UserPage",
+	z.strictObject({
+		items: z.array(user),
+		total: z.number().int().openapi({ description: "Users in all pages." }),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
+
 describeRoutes([
 	{
 		method: "get",
@@ -22,7 +32,7 @@ describeRoutes([
 		access: "bearer",
 		request: { query: listUsersQuerySchema },
 		responses: {
-			200: { description: "List of users", schema: z.array(user) },
+			200: { description: "List of users", schema: userPage },
 			400: "limit outside 1 to 100, a negative offset, or an unknown parameter",
 			401: "Unauthorized",
 		},
