@@ -25,9 +25,8 @@ const OPENAPI_VERSION = "3.1.0";
 /**
  * One arktype schema as an OpenAPI schema object.
  *
- * The input side (`.in`) is what a client sends, which matters for a morph: ListPostsQuery
- * takes the string "20" and hands the handler the number 20, and the client only ever
- * sees the string.
+ * The input side (`.in`) is what a client sends, which differs from the output only for a
+ * morph (none of the request schemas has one today).
  *
  * A `.narrow()` refinement has no JSON Schema form, so the only trace it can leave in the
  * document is its description. One without a `.describe()` would vanish silently - the
@@ -168,7 +167,7 @@ function operationFor(route: ApiRoute, rendered: ReadonlyMap<string, string>) {
 		}));
 	});
 
-	// Any REST route can fail unexpectedly, and rest/base.ts answers that with the Error
+	// Any REST route can fail unexpectedly, and rest/errors.ts answers that with the Error
 	// body. Routes outside the prefix (the health probe) do not go through that handler.
 	const declared: Record<number, ApiResponse | string> = route.path.startsWith(REST_PREFIX)
 		? {

@@ -1,5 +1,5 @@
 import { cors } from "@elysiajs/cors";
-import { ScalarRender } from "@elysiajs/openapi/scalar";
+import { type ElysiaOpenAPIConfig, openapi } from "@elysiajs/openapi";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
@@ -26,6 +26,24 @@ export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+
+			// A Scalar page at /docs over the document at /docs.json, outside production. The
+			// document is src/openapi/'s - the same one `bun run openapi` commits as
+			// openapi.json - not the plugin's own: it can only infer Elysia routes, the
+			// arktype-backed REST twins describe themselves through the registry, and tRPC is
+			// RPC-only. So every route is excluded from inference and the plugin is handed the
+			// whole document; the test suite holds /docs.json equal to openapi.json.
+			.use(
+				openapi({
+					enabled: env.NODE_ENV !== "production",
+					path: "/docs",
+					specPath: "/docs.json",
+					// The plugin types `documentation` as OpenAPI 3.0; this document is 3.1 (see
+					// openapi/document.ts), which it passes through untouched.
+					documentation: buildOpenApiDocument() as ElysiaOpenAPIConfig["documentation"],
+					exclude: { paths: [/.*/] },
+				}),
+			)
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
@@ -62,28 +80,6 @@ export function createApp({ db, log: root }: AppDeps) {
 			// A plain Elysia route. Elysia and tRPC share the same server - use plain routes
 			// for what a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
-
-			// The OpenAPI document, built from src/openapi/ - the same document `bun run openapi`
-			// commits as openapi.json - and a Scalar page over it. @elysiajs/openapi supplies
-			// only the page: its plugin generates a document from the routes it can see and
-			// merges in whatever it is given, so it cannot serve this one unaltered. Outside
-			// production only, like the plugin's default.
-			.use((app) => {
-				if (env.NODE_ENV === "production") return app;
-
-				const document = buildOpenApiDocument();
-				const page = ScalarRender(document.info, { url: "/docs.json" });
-
-				return app
-					.get("/docs.json", () => document)
-					.get(
-						"/docs",
-						() =>
-							new Response(page, {
-								headers: { "content-type": "text/html; charset=utf-8" },
-							}),
-					);
-			})
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//

@@ -468,9 +468,9 @@
 						"in": "query",
 						"required": false,
 						"schema": {
-							"type": "string",
-							"description": "an integer from 1 to 100 (20 when absent)",
-							"pattern": "^(?:(?!^-0$)-?(?:(?:0|[1-9]\\d*)))$"
+							"type": "integer",
+							"maximum": 100,
+							"minimum": 1
 						}
 					},
 					{
@@ -478,10 +478,7 @@
 						"in": "query",
 						"required": false,
 						"schema": {
-							"enum": [
-								"false",
-								"true"
-							]
+							"type": "boolean"
 						}
 					}
 				],

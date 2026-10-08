@@ -1,6 +1,5 @@
 import { REST_PREFIX } from "../../rest";
-import { ListPostsQuery } from "../../rest/posts";
-import { CreatePostInput, PostIdInput } from "../../services/post.service";
+import { CreatePostInput, ListPostsInput, PostIdInput } from "../../services/post.service";
 import { describeRoutes } from "../registry";
 import { PostView } from "../schemas";
 
@@ -13,7 +12,7 @@ describeRoutes([
 		tags: ["Posts"],
 		access: "anyone",
 		procedure: "post.list",
-		request: { query: ListPostsQuery },
+		request: { query: ListPostsInput },
 		responses: {
 			200: { description: "At most `limit` posts.", schema: PostView.array() },
 			400: "A query value failed validation.",

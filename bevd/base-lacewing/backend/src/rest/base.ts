@@ -1,21 +1,13 @@
-import { Elysia, ValidationError } from "elysia";
+import { Elysia } from "elysia";
 import type { AppDeps } from "../app";
 import { resolveRequestAuth } from "../http/auth";
 import { csrfTokensMatch } from "../http/csrf";
 import { requestContext } from "../http/request";
-import { AppError, type ErrorCode } from "../lib/errors";
+import { AppError } from "../lib/errors";
 import type { ServiceCtx } from "../services/context";
+import { restErrors } from "./errors";
 
 export const REST_PREFIX = "/api/v1";
-
-export const HTTP_STATUS: Record<ErrorCode, number> = {
-	BAD_REQUEST: 400,
-	UNAUTHORIZED: 401,
-	FORBIDDEN: 403,
-	NOT_FOUND: 404,
-	CONFLICT: 409,
-	INTERNAL: 500,
-};
 
 /**
  * REST twins of a few tRPC procedures, for callers that will not speak tRPC: curl, another
@@ -30,6 +22,7 @@ export function restBase({ db, log: root }: AppDeps) {
 	return (
 		new Elysia({ prefix: REST_PREFIX })
 			.use(requestContext)
+			.use(restErrors(root))
 			.derive(async ({ request, requestId, set }) => {
 				const auth = await resolveRequestAuth(request);
 				const log = root.child({ requestId, transport: "rest" });
@@ -67,47 +60,6 @@ export function restBase({ db, log: root }: AppDeps) {
 
 					throw new AppError("FORBIDDEN", "CSRF token missing or invalid");
 				}
-			})
-
-			// One error body for every failure: `{ error: { code, message, requestId } }`, the
-			// codes being lib/errors.ts's ErrorCode. Internal errors are flattened to a fixed
-			// message and logged in full against the requestId, as trpc/trpc.ts does.
-			.onError(({ code, error, set, requestId, path }) => {
-				const log = root.child({ requestId, transport: "rest" });
-				let status: number;
-				let errorCode: ErrorCode;
-				let message: string;
-
-				if (error instanceof AppError) {
-					status = HTTP_STATUS[error.code];
-					errorCode = error.code;
-					message = error.message;
-				} else if (error instanceof ValidationError) {
-					// The arktype messages, joined the way parseInput's summary joins them, so a
-					// 400 reads the same whether Elysia or the service caught it.
-					status = 400;
-					errorCode = "BAD_REQUEST";
-					message = error.all.map((issue) => issue.message).join("\n");
-				} else if (code === "PARSE") {
-					status = 400;
-					errorCode = "BAD_REQUEST";
-					message = "Malformed request body";
-				} else {
-					status = 500;
-					errorCode = "INTERNAL";
-					message = "Internal server error";
-				}
-
-				if (status >= 500) {
-					log.error({ path, err: error }, "rest failed");
-				} else {
-					log.info({ path, code: errorCode }, "rest rejected");
-				}
-
-				set.status = status;
-				set.headers["x-request-id"] = requestId;
-
-				return { error: { code: errorCode, message, requestId } };
 			})
 	);
 }

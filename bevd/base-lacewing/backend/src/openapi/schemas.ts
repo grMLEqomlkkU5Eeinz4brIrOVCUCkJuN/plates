@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import type { ErrorCode } from "../lib/errors";
-import { HTTP_STATUS } from "../rest/base";
+import { HTTP_STATUS } from "../rest/errors";
 import { named } from "./registry";
 
 /**
@@ -40,7 +40,7 @@ export const OkView = named("Ok", type({ ok: "true" }));
 
 export const HealthView = named("Health", type({ status: "'ok'", uptime: "number" }));
 
-/** rest/base.ts's onError body. The codes are lib/errors.ts's, read off the status map. */
+/** rest/errors.ts's body. The codes are lib/errors.ts's, read off the status map. */
 export const ErrorBody = named(
 	"Error",
 	type({
