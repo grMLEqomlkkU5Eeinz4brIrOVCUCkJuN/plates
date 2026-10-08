@@ -8,8 +8,8 @@ import {
 	refresh,
 	getCsrfToken,
 	me,
-	loginSchema,
 } from "../../../controllers/auth.controller";
+import { loginSchema } from "../../../models/auth.model";
 
 const router = Router();
 

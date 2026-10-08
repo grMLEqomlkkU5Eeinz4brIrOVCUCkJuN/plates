@@ -15,6 +15,10 @@ export const createUserSchema = userSchema.omit({
 });
 export const updateUserSchema = createUserSchema.partial();
 
+export const userIdParamsSchema = z.object({
+	id: z.string().uuid("Invalid user ID format"),
+});
+
 export type UserData = z.infer<typeof userSchema>;
 export type CreateUserData = z.infer<typeof createUserSchema>;
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
