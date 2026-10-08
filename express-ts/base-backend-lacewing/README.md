@@ -139,7 +139,7 @@ await request(app).get("/api/v1/products").set(asUser(session));
 | `SERVICE_NAME`       | `lacewing-backend`             | Service name for logs                                                      |
 | `CORS_ORIGIN`        | `*`                            | Allowed origins (comma-separated)                                          |
 | `CORS_METHODS`       | `GET,POST,PUT,...`             | Allowed methods                                                            |
-| `CORS_CREDENTIALS`   | `true`                         | Allow credentials                                                          |
+| `CORS_CREDENTIALS`   | `false`                        | Allow credentials; needs a named `CORS_ORIGIN`, not `*`                    |
 | `JWT_SECRET`         | (required)                     | Access-token HMAC secret. Entropy-checked at boot - use `npm run secrets`. |
 | `JWT_REFRESH_SECRET` | (required)                     | Refresh-token HMAC secret. Same rules.                                     |
 | `JWT_ISSUER`         | `http://localhost:3000`        | `iss` on every token; verification pins it                                 |
