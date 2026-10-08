@@ -1,6 +1,6 @@
 # Express TypeScript Backend Template (JWT)
 
-A simple Express.js backend template with TypeScript, JWT authentication, CSRF protection, Zod validation, Winston logging, Swagger docs, and Jest testing. Not specific to any tech stack.
+A simple Express.js backend template with TypeScript, JWT authentication, CSRF protection, Zod validation, Winston logging, OpenAPI docs generated from the zod schemas, and Jest testing. Not specific to any tech stack.
 
 ## Quick Start
 
@@ -26,14 +26,14 @@ npm start
 ├── Dockerfile
 ├── eslint.config.mjs
 ├── jest.config.ts
+├── openapi.json
 ├── package.json
 ├── package-lock.json
 ├── README.md
 ├── src
 │   ├── app.ts
 │   ├── config
-│   │   ├── env.ts
-│   │   └── swagger.ts
+│   │   └── env.ts
 │   ├── controllers
 │   │   ├── auth.controller.ts
 │   │   ├── health.controller.ts
@@ -48,7 +48,19 @@ npm start
 │   ├── models
 │   │   ├── __tests__
 │   │   │   └── user.model.test.ts
+│   │   ├── auth.model.ts
 │   │   └── user.model.ts
+│   ├── openapi
+│   │   ├── __tests__
+│   │   │   └── openapi.test.ts
+│   │   ├── document.ts
+│   │   ├── index.ts
+│   │   ├── paths
+│   │   │   ├── auth.ts
+│   │   │   ├── health.ts
+│   │   │   └── users.ts
+│   │   ├── registry.ts
+│   │   └── responseCheck.ts
 │   ├── routes
 │   │   ├── api
 │   │   │   └── v1
@@ -56,12 +68,17 @@ npm start
 │   │   │       ├── health.routes.ts
 │   │   │       ├── index.ts
 │   │   │       ├── __tests__
+│   │   │       │   ├── auth.routes.test.ts
 │   │   │       │   ├── health.routes.test.ts
 │   │   │       │   └── user.routes.test.ts
 │   │   │       └── user.routes.ts
 │   │   └── index.ts
+│   ├── scripts
+│   │   └── openapi.ts
 │   ├── test
 │   │   ├── app.ts
+│   │   ├── auth.ts
+│   │   ├── env.ts
 │   │   └── setup.ts
 │   ├── types
 │   │   ├── express.d.ts
@@ -99,6 +116,10 @@ export const createProductSchema = productSchema.omit({
 });
 
 export const updateProductSchema = createProductSchema.partial();
+
+export const productIdParamsSchema = z.object({
+	id: z.uuid("Invalid product ID"),
+});
 
 // Derive types from schemas
 export type ProductData = z.infer<typeof productSchema>;
@@ -186,13 +207,13 @@ Create `src/routes/api/v1/product.routes.ts`:
 
 ```typescript
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
 import {
 	createProductSchema,
 	updateProductSchema,
+	productIdParamsSchema,
 } from "../../../models/product.model";
 import {
 	createProductHandler,
@@ -204,46 +225,8 @@ import {
 
 const router = Router();
 
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid product ID"),
-	}),
-};
-
-/**
- * @swagger
- * /products:
- *   get:
- *     summary: Get all products
- *     tags: [Products]
- *     responses:
- *       200:
- *         description: List of products
- */
 router.get("/", authenticate, getProducts);
 
-/**
- * @swagger
- * /products:
- *   post:
- *     summary: Create a product
- *     tags: [Products]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, price]
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *     responses:
- *       201:
- *         description: Product created
- */
 router.post(
 	"/",
 	authenticate,
@@ -252,74 +235,26 @@ router.post(
 	createProductHandler
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   get:
- *     summary: Get product by ID
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product found
- *       404:
- *         description: Product not found
- */
-router.get("/:id", authenticate, validate(idParamSchema), getProductById);
+router.get(
+	"/:id",
+	authenticate,
+	validate({ params: productIdParamsSchema }),
+	getProductById
+);
 
-/**
- * @swagger
- * /products/{id}:
- *   patch:
- *     summary: Update product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product updated
- */
 router.patch(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate({ ...idParamSchema, body: updateProductSchema }),
+	validate({ params: productIdParamsSchema, body: updateProductSchema }),
 	updateProductHandler
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   delete:
- *     summary: Delete product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       204:
- *         description: Product deleted
- */
 router.delete(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate(idParamSchema),
+	validate({ params: productIdParamsSchema }),
 	deleteProduct
 );
 
@@ -347,7 +282,64 @@ router.use("/products", productRoutes); // Add this
 export default router;
 ```
 
-### Step 5: Add Tests
+### Step 5: Describe the Routes
+
+The API document is built from route descriptions that hold the same zod
+schemas the validators run. Create `src/openapi/paths/products.ts`:
+
+```typescript
+import { z } from "zod";
+import {
+	createProductSchema,
+	updateProductSchema,
+	productIdParamsSchema,
+	productSchema,
+} from "../../models/product.model";
+import { describeRoutes, named } from "../registry";
+
+const product = named("Product", productSchema);
+
+describeRoutes([
+	{
+		method: "get",
+		path: "/products",
+		operationId: "getProducts",
+		summary: "Get all products",
+		tags: ["Products"],
+		access: "session",
+		responses: {
+			200: { description: "List of products", schema: z.array(product) },
+			401: "Unauthorized",
+		},
+	},
+	{
+		method: "post",
+		path: "/products",
+		operationId: "createProduct",
+		summary: "Create a product",
+		tags: ["Products"],
+		access: "session",
+		csrf: true,
+		request: { body: createProductSchema },
+		responses: {
+			201: { description: "Product created", schema: product },
+			400: "Validation error",
+			401: "Unauthorized",
+			403: "Invalid CSRF token",
+		},
+	},
+	// ...GET, PATCH and DELETE /products/:id the same way
+]);
+```
+
+Then import it in `src/openapi/index.ts`, add `["/products", productRoutes]`
+to the `mounts` list in `src/openapi/__tests__/openapi.test.ts`, and run
+`npm run openapi` to regenerate `openapi.json`. The openapi tests fail if a
+mounted route is not described, if a description names a different schema
+object than its validator runs, or if `openapi.json` is stale. In route tests,
+`createTestApp` checks every JSON response against the description.
+
+### Step 6: Add Tests
 
 Create `src/models/__tests__/product.model.test.ts`:
 
@@ -426,7 +418,7 @@ describe("Product Routes", () => {
 });
 ```
 
-### Step 6: Run Tests
+### Step 7: Run Tests
 
 ```bash
 npm test
@@ -477,7 +469,10 @@ not run, so name the narrowest parent that covers your hosts.
 
 ## API Documentation
 
-Swagger UI available at `http://localhost:3000/docs` when the server is running.
+Swagger UI is at `http://localhost:3000/docs` and the raw document at `/docs.json`
+when the server runs outside production. The same document is committed as
+`openapi.json`; regenerate it with `npm run openapi` after changing a route
+description or a schema it uses.
 
 ## Key Patterns
 
