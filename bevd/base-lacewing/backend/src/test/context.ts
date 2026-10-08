@@ -1,8 +1,8 @@
 import type { Actor } from "../auth/policy";
 import type { Database } from "../db";
+import type { ActorSource } from "../http/auth";
 import { logger } from "../lib/logger";
 import type { ServiceCtx } from "../services/context";
-import type { ActorSource } from "../trpc/context";
 import { appRouter } from "../trpc/routers";
 import { createCallerFactory } from "../trpc/trpc";
 

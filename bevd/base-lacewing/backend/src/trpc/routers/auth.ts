@@ -1,6 +1,5 @@
 import type { PublicUser } from "../../db/schema";
-import { clearedCookies, sessionCookies } from "../../http/cookies";
-import { generateCsrfToken } from "../../http/csrf";
+import { clearedCookies, cookiesForSession } from "../../http/cookies";
 import {
 	LoginInput,
 	login,
@@ -26,12 +25,7 @@ import { protectedProcedure, publicProcedure, router } from "../trpc";
  * when the cookie is gone, which is all it needs to know.
  */
 function commitSession(ctx: Context, session: Session): PublicUser {
-	// A fresh CSRF token with every session: it rides in the one readable
-	// cookie, and mutations must echo it in the x-csrf-token header. See
-	// http/csrf.ts and the csrfGuard in ../trpc.ts.
-	const csrfToken = generateCsrfToken();
-
-	for (const cookie of sessionCookies(session.accessToken, session.refreshToken, csrfToken)) {
+	for (const cookie of cookiesForSession(session)) {
 		ctx.resHeaders.append("set-cookie", cookie);
 	}
 
