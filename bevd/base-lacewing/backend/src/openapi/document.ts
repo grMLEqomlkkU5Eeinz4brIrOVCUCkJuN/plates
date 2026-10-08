@@ -273,5 +273,3 @@ export function buildOpenApiDocument() {
 		},
 	};
 }
-
-export type OpenApiDocument = ReturnType<typeof buildOpenApiDocument>;

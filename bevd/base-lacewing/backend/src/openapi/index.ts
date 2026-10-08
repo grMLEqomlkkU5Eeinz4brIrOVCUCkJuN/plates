@@ -4,5 +4,5 @@ import "./paths/health";
 import "./paths/auth";
 import "./paths/posts";
 
-export { buildOpenApiDocument, type OpenApiDocument } from "./document";
+export { buildOpenApiDocument } from "./document";
 export { describedRoutes } from "./registry";
