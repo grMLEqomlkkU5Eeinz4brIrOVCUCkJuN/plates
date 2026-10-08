@@ -37,7 +37,14 @@ export const validate = (schema: ValidationSchema): ValidateMiddleware => {
 				);
 			}
 			if (location === "query") {
-				Object.assign(req.query, result.data);
+				// Express 5 makes req.query a getter that parses the URL again on
+				// every read, so anything assigned onto it is lost: defaults and
+				// coerced numbers would never reach the handler. Shadow it instead.
+				Object.defineProperty(req, "query", {
+					value: result.data,
+					writable: true,
+					configurable: true,
+				});
 			} else {
 				req[location] = result.data;
 			}
