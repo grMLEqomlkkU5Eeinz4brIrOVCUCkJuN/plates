@@ -1,0 +1,94 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "lacewing-backend",
+		"version": "1.0.0",
+		"description": "Express + TypeScript backend demonstrating lacewing, the RFC 8725-first JWT library."
+	},
+	"servers": [
+		{
+			"url": "/api/v1",
+			"description": "API v1"
+		}
+	],
+	"tags": [
+		{
+			"name": "Health"
+		}
+	],
+	"components": {
+		"securitySchemes": {
+			"accessCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "access_token",
+				"description": "Set by login and refresh. Read before the bearer header."
+			},
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "The access token, for clients that do not keep cookies. Strict RFC 6750: exactly one `Bearer <token>`."
+			},
+			"refreshCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "refresh_token",
+				"description": "Set by login and refresh, scoped to the refresh path."
+			},
+			"csrfToken": {
+				"type": "apiKey",
+				"in": "header",
+				"name": "x-csrf-token",
+				"description": "The csrfToken from login, refresh or /auth/csrf-token. It must match the __csrf cookie and the session it was minted for."
+			}
+		},
+		"schemas": {
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"ok"
+						]
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"status",
+					"timestamp"
+				],
+				"additionalProperties": false
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Health check endpoint",
+				"description": "Liveness only: it answers while the process is up and checks no dependency.",
+				"tags": [
+					"Health"
+				],
+				"responses": {
+					"200": {
+						"description": "Server is healthy",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
