@@ -8,8 +8,6 @@ import {
 import { describeRoutes, named } from "../registry";
 
 const user = named("User", userSchema);
-named("CreateUser", createUserSchema);
-named("UpdateUser", updateUserSchema);
 
 describeRoutes([
 	{

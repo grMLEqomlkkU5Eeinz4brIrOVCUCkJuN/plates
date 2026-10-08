@@ -8,12 +8,17 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({
-	id: true,
-	createdAt: true,
-	updatedAt: true,
-});
-export const updateUserSchema = createUserSchema.partial();
+// Named here so the validator and the openapi document share one object.
+export const createUserSchema = userSchema
+	.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+	})
+	.meta({ id: "CreateUser" });
+export const updateUserSchema = createUserSchema
+	.partial()
+	.meta({ id: "UpdateUser" });
 
 export const userIdParamsSchema = z.object({
 	id: z.string().uuid("Invalid user ID format"),
