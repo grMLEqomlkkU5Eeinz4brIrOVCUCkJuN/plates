@@ -53,5 +53,7 @@ process.on("unhandledRejection", (reason) => {
 server.listen(env.PORT, () => {
 	logger.info(`Server running on port ${env.PORT}`);
 	logger.info(`Environment: ${env.NODE_ENV}`);
-	logger.info(`API docs available at http://localhost:${env.PORT}/docs`);
+	if (env.NODE_ENV !== "production") {
+		logger.info(`API docs available at http://localhost:${env.PORT}/docs`);
+	}
 });
