@@ -111,12 +111,10 @@ No gateway knows what a `jti` is.
 
 ## Which template am I even using?
 
-Repo hygiene rather than production readiness, but it affects trust. There are four
-backends here and two pairs of near-identical names:
+Repo hygiene rather than production readiness, but it affects trust. There are several
+backends here and one pair of near-identical names:
 
 - `base-backend` and `base-backend-new` differ in six source files.
-- `back-backend-jwt` and `base-backend-jwt` differ in eight, and one of those names looks
-  like a typo.
 
 Nothing says which is current. Before anyone builds on these, pick the survivors, delete
 the rest, and add a top-level README the way `bevd/` has one.

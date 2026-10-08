@@ -29,7 +29,6 @@ and frontend, and why each piece is there - read it if you are choosing between 
 | --------------------------- | --------------------- | -------------------------------- |
 | `express-ts/base-backend`    | none                  | Express + TypeScript. Uses an `asyncHandler` wrapper for route errors. |
 | `express-ts/base-backend-new`| none                  | Same, without the `asyncHandler` wrapper. |
-| `express-ts/back-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Uses `asyncHandler`. |
 | `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
 | `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |
 | `express-ts/base-backend-jwt-prisma`| JWT (cookies + CSRF), real accounts | The only `express-ts` template with a database: Postgres through Prisma 7, argon2id passwords, rotated refresh tokens with reuse detection, a service layer that owns every query, tests against a real Postgres. Start here if you need persistence. |
