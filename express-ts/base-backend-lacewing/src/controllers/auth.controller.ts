@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { z } from "zod";
 import {
 	ACCESS_COOKIE,
 	REFRESH_COOKIE,
@@ -12,14 +11,8 @@ import {
 } from "../middleware/auth";
 import { clearCsrfCookie, generateToken } from "../middleware/csrf";
 import { createError } from "../middleware/errorHandler";
+import { LoginData } from "../models/auth.model";
 import { readTokenCookie, JWTError } from "lacewing";
-
-export const loginSchema = z.object({
-	email: z.email("Invalid email format"),
-	password: z.string().min(1, "Password is required"),
-});
-
-export type LoginData = z.infer<typeof loginSchema>;
 
 export const login = async (req: Request, res: Response): Promise<void> => {
 	const { email } = req.body as LoginData;

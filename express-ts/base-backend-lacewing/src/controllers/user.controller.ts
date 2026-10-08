@@ -3,6 +3,7 @@ import {
 	createUser,
 	updateUser,
 	CreateUserData,
+	ListUsersQuery,
 	UpdateUserData,
 	UserData,
 } from "../models/user.model";
@@ -18,8 +19,18 @@ export const createUserHandler = (req: Request, res: Response): void => {
 	res.status(201).json(user);
 };
 
-export const getUsers = (_req: Request, res: Response): void => {
-	res.json([...users.values()]);
+/** Insertion order, so a page stays stable while nothing is deleted before it. */
+export const getUsers = (req: Request, res: Response): void => {
+	// validate() replaced req.query with the parsed numbers; Express still
+	// types it as ParsedQs (strings), which does not overlap, hence unknown.
+	const { limit, offset } = req.query as unknown as ListUsersQuery;
+	const all = [...users.values()];
+	res.json({
+		items: all.slice(offset, offset + limit),
+		total: all.length,
+		limit,
+		offset,
+	});
 };
 
 export const getUserById = (

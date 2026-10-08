@@ -85,7 +85,74 @@ describe("User Routes", () => {
 				.set(authed());
 
 			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			expect(Array.isArray(response.body.items)).toBe(true);
+		});
+
+		describe("pagination", () => {
+			const list = (query: string): request.Test =>
+				request(app).get(`/api/v1/users${query}`).set(authed());
+
+			beforeAll(async () => {
+				for (let i = 0; i < 25; i++) {
+					await request(app)
+						.post("/api/v1/users")
+						.set(csrf())
+						.send({ email: `page${i}@example.com`, name: `Page ${i}` });
+				}
+			});
+
+			it("returns 20 by default", async () => {
+				const response = await list("");
+
+				expect(response.status).toBe(200);
+				expect(response.body.items).toHaveLength(20);
+				expect(response.body).toMatchObject({ limit: 20, offset: 0 });
+				expect(response.body.total).toBeGreaterThanOrEqual(25);
+			});
+
+			it("returns the rest on the last, partial page", async () => {
+				const all = await list("?limit=100");
+				const tail = await list(`?limit=20&offset=20`);
+
+				expect(tail.body.items).toEqual(all.body.items.slice(20, 40));
+				expect(tail.body.items.length).toBe(all.body.total - 20);
+			});
+
+			it("pages without overlap", async () => {
+				const all = await list("?limit=100");
+				const second = await list("?limit=5&offset=5");
+
+				expect(second.body.items).toEqual(all.body.items.slice(5, 10));
+			});
+
+			it("returns an empty page past the end", async () => {
+				const response = await list("?offset=100000");
+
+				expect(response.status).toBe(200);
+				expect(response.body.items).toEqual([]);
+				expect(response.body.offset).toBe(100000);
+			});
+
+			it.each([
+				"?limit=0",
+				"?limit=101",
+				"?limit=2.5",
+				"?limit=abc",
+				"?offset=-1",
+				"?page=2",
+			])("rejects %s", async (query) => {
+				const response = await list(query);
+
+				expect(response.status).toBe(400);
+			});
+
+			it("accepts the maximum page size", async () => {
+				const response = await list("?limit=100");
+
+				expect(response.status).toBe(200);
+				expect(response.body.limit).toBe(100);
+				expect(response.body.items.length).toBeLessThanOrEqual(100);
+			});
 		});
 	});
 

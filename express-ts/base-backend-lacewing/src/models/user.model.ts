@@ -8,12 +8,28 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({
+const userFields = userSchema.omit({
 	id: true,
 	createdAt: true,
 	updatedAt: true,
 });
-export const updateUserSchema = createUserSchema.partial();
+
+// The ids name the OpenAPI components; see models/auth.model.ts for why here.
+export const createUserSchema = userFields.meta({ id: "CreateUser" });
+export const updateUserSchema = userFields.partial().meta({ id: "UpdateUser" });
+
+export const MAX_PAGE_SIZE = 100;
+
+export const listUsersQuerySchema = z.strictObject({
+	limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+
+export const userIdParamsSchema = z.object({
+	id: z.string().uuid("Invalid user ID format"),
+});
 
 export type UserData = z.infer<typeof userSchema>;
 export type CreateUserData = z.infer<typeof createUserSchema>;
