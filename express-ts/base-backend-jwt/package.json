@@ -12,13 +12,15 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"prepare": "lefthook install",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"openapi": "tsx src/scripts/openapi.ts"
 	},
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
 	"description": "",
 	"dependencies": {
+		"@asteasolutions/zod-to-openapi": "^9.1.0",
 		"cookie-parser": "^1.4.7",
 		"cors": "^2.8.6",
 		"csrf-csrf": "^4.0.3",
