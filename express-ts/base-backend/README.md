@@ -77,7 +77,7 @@ npm start
 │   │   ├── express.d.ts
 │   │   └── README.md
 │   └── utils
-│       ├── asyncHandler.ts
+│       ├── helpers.ts
 │       └── logger.ts
 └── tsconfig.json
 
@@ -229,7 +229,6 @@ import {
 	updateProductSchema,
 	productIdParamsSchema,
 } from "../../../models/product.model";
-import asyncHandler from "../../../utils/asyncHandler";
 import {
 	createProduct,
 	getProducts,
@@ -240,23 +239,23 @@ import {
 
 const router = Router();
 
-router.get("/", asyncHandler(getProducts));
+router.get("/", getProducts);
 
 router.post(
 	"/",
 	validate({ body: createProductSchema }),
-	asyncHandler(createProduct)
+	createProduct
 );
 
-router.get("/:id", validate({ params: productIdParamsSchema }), asyncHandler(getProductById));
+router.get("/:id", validate({ params: productIdParamsSchema }), getProductById);
 
 router.patch(
 	"/:id",
 	validate({ params: productIdParamsSchema, body: updateProductSchema }),
-	asyncHandler(updateProduct)
+	updateProduct
 );
 
-router.delete("/:id", validate({ params: productIdParamsSchema }), asyncHandler(deleteProduct));
+router.delete("/:id", validate({ params: productIdParamsSchema }), deleteProduct);
 
 export default router;
 ```
@@ -486,18 +485,14 @@ router.get("/", validate({ query: filterSchema }), handler);
 
 ### Async Handlers
 
-Wrap async controllers with `asyncHandler`:
+Express 5 forwards a rejected promise from a handler to the error handler,
+so async controllers need no wrapper:
 
 ```typescript
-import asyncHandler from "../utils/asyncHandler";
-
-router.get(
-	"/",
-	asyncHandler(async (req, res) => {
-		const data = await someAsyncOperation();
-		res.json(data);
-	})
-);
+router.get("/", async (req, res) => {
+	const data = await someAsyncOperation();
+	res.json(data);
+});
 ```
 
 ### Logging

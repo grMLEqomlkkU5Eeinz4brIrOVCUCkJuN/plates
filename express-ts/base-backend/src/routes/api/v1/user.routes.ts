@@ -6,7 +6,6 @@ import {
 	updateUserSchema,
 	userIdParamsSchema,
 } from "../../../models/user.model";
-import asyncHandler from "../../../utils/asyncHandler";
 import {
 	createUser,
 	getUsers,
@@ -20,31 +19,31 @@ const router = Router();
 router.get(
 	"/",
 	validate({ query: listUsersQuerySchema }),
-	asyncHandler(getUsers)
+	getUsers
 );
 
 router.post(
 	"/",
 	validate({ body: createUserSchema }),
-	asyncHandler(createUser)
+	createUser
 );
 
 router.get(
 	"/:id",
 	validate({ params: userIdParamsSchema }),
-	asyncHandler(getUserById)
+	getUserById
 );
 
 router.patch(
 	"/:id",
 	validate({ params: userIdParamsSchema, body: updateUserSchema }),
-	asyncHandler(updateUser)
+	updateUser
 );
 
 router.delete(
 	"/:id",
 	validate({ params: userIdParamsSchema }),
-	asyncHandler(deleteUser)
+	deleteUser
 );
 
 export default router;
