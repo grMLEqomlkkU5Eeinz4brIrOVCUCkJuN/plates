@@ -1,11 +1,17 @@
-import { afterAll, beforeAll } from "@jest/globals";
+import { afterEach, beforeAll } from "@jest/globals";
+import { violations } from "../openapi/responseCheck";
 
-// Global test setup
 beforeAll((): void => {
 	process.env.NODE_ENV = "test";
 });
 
-// Clean up after all tests
-afterAll((): void => {
-	// Add any global cleanup here
+afterEach((): void => {
+	const found = violations.splice(0);
+	if (found.length === 0) return;
+
+	throw new Error(
+		`Responses disagree with their description:\n${found
+			.map((v) => `  ${v.route} ${v.status}: ${v.problem}`)
+			.join("\n")}`
+	);
 });

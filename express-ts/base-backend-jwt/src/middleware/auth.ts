@@ -36,8 +36,14 @@ export const verifyRefreshToken = (token: string): JwtPayload =>
 // hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY and
 // not this line. res.cookie wants milliseconds; the tokens are configured in
 // duration strings.
-const ACCESS_MAX_AGE_MS = durationToSeconds(env.JWT_ACCESS_EXPIRY) * 1000;
+//
+// The access cookie outlives its token on purpose and lasts as long as the
+// refresh token. middleware/csrf.ts binds the CSRF token to the access_token
+// cookie, and /auth/refresh is CSRF-protected, so the cookie has to still be
+// there when the client calls refresh because the token inside it expired.
+// authenticate still rejects the expired token, so nothing else changes.
 const REFRESH_MAX_AGE_MS = durationToSeconds(env.JWT_REFRESH_EXPIRY) * 1000;
+const ACCESS_MAX_AGE_MS = REFRESH_MAX_AGE_MS;
 
 // A cookie is identified by name, domain and path together, so clearAuthCookies
 // has to name the domain setAuthCookies used or the browser keeps the cookie and

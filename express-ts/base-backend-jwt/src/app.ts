@@ -3,11 +3,11 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec } from "./config/swagger";
 import { env } from "./config/env";
 import { httpLogger } from "./middleware/httpLogger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import routes from "./routes";
+import { buildOpenApiDocument } from "./openapi";
 
 export const createApp = (): Express => {
 	const app = express();
@@ -38,9 +38,13 @@ export const createApp = (): Express => {
 	// HTTP logging
 	app.use(httpLogger);
 
-	// API documentation
-	app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-	app.get("/docs.json", (_req, res) => res.json(swaggerSpec));
+	// API documentation, kept out of production so it does not map the API for
+	// anyone who finds the host. openapi.json in the repo is the same document.
+	if (env.NODE_ENV !== "production") {
+		const openApiDocument = buildOpenApiDocument();
+		app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+		app.get("/docs.json", (_req, res) => res.json(openApiDocument));
+	}
 
 	// Routes (handles /api/v1, etc.)
 	app.use(routes);

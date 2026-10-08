@@ -1,6 +1,6 @@
 # Express TypeScript Backend Template (JWT)
 
-A simple Express.js backend template with TypeScript, JWT authentication, CSRF protection, Zod validation, Winston logging, Swagger docs, and Jest testing. Not specific to any tech stack.
+A simple Express.js backend template with TypeScript, JWT authentication, CSRF protection, Zod validation, Winston logging, OpenAPI docs generated from the zod schemas, and Jest testing. Not specific to any tech stack.
 
 ## Quick Start
 
@@ -26,14 +26,14 @@ npm start
 ├── Dockerfile
 ├── eslint.config.mjs
 ├── jest.config.ts
+├── openapi.json
 ├── package.json
 ├── package-lock.json
 ├── README.md
 ├── src
 │   ├── app.ts
 │   ├── config
-│   │   ├── env.ts
-│   │   └── swagger.ts
+│   │   └── env.ts
 │   ├── controllers
 │   │   ├── auth.controller.ts
 │   │   ├── health.controller.ts
@@ -48,7 +48,19 @@ npm start
 │   ├── models
 │   │   ├── __tests__
 │   │   │   └── user.model.test.ts
+│   │   ├── auth.model.ts
 │   │   └── user.model.ts
+│   ├── openapi
+│   │   ├── __tests__
+│   │   │   └── openapi.test.ts
+│   │   ├── document.ts
+│   │   ├── index.ts
+│   │   ├── paths
+│   │   │   ├── auth.ts
+│   │   │   ├── health.ts
+│   │   │   └── users.ts
+│   │   ├── registry.ts
+│   │   └── responseCheck.ts
 │   ├── routes
 │   │   ├── api
 │   │   │   └── v1
@@ -56,12 +68,17 @@ npm start
 │   │   │       ├── health.routes.ts
 │   │   │       ├── index.ts
 │   │   │       ├── __tests__
+│   │   │       │   ├── auth.routes.test.ts
 │   │   │       │   ├── health.routes.test.ts
 │   │   │       │   └── user.routes.test.ts
 │   │   │       └── user.routes.ts
 │   │   └── index.ts
+│   ├── scripts
+│   │   └── openapi.ts
 │   ├── test
 │   │   ├── app.ts
+│   │   ├── auth.ts
+│   │   ├── env.ts
 │   │   └── setup.ts
 │   ├── types
 │   │   ├── express.d.ts
@@ -100,10 +117,20 @@ export const createProductSchema = productSchema.omit({
 
 export const updateProductSchema = createProductSchema.partial();
 
+export const productIdParamsSchema = z.object({
+	id: z.uuid("Invalid product ID"),
+});
+
+export const listProductsQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(100).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
+});
+
 // Derive types from schemas
 export type ProductData = z.infer<typeof productSchema>;
 export type CreateProductData = z.infer<typeof createProductSchema>;
 export type UpdateProductData = z.infer<typeof updateProductSchema>;
+export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 
 // Factory function
 export const createProduct = (data: CreateProductData): ProductData => {
@@ -139,6 +166,7 @@ import {
 	CreateProductData,
 	UpdateProductData,
 	ProductData,
+	ListProductsQuery,
 } from "../models/product.model";
 import { createError } from "../middleware/errorHandler";
 
@@ -151,8 +179,15 @@ export const createProductHandler = (req: Request, res: Response) => {
 	res.status(201).json(product);
 };
 
-export const getProducts = (_req: Request, res: Response) => {
-	res.json([...products.values()]);
+export const getProducts = (req: Request, res: Response) => {
+	// validate() has replaced req.query with listProductsQuerySchema's output.
+	const { limit, offset } = req.query as unknown as ListProductsQuery;
+	res.json({
+		items: products.values().drop(offset).take(limit).toArray(),
+		total: products.size,
+		limit,
+		offset,
+	});
 };
 
 export const getProductById = (req: Request<{ id: string }>, res: Response) => {
@@ -186,13 +221,14 @@ Create `src/routes/api/v1/product.routes.ts`:
 
 ```typescript
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
 import {
 	createProductSchema,
 	updateProductSchema,
+	productIdParamsSchema,
+	listProductsQuerySchema,
 } from "../../../models/product.model";
 import {
 	createProductHandler,
@@ -204,46 +240,13 @@ import {
 
 const router = Router();
 
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid product ID"),
-	}),
-};
+router.get(
+	"/",
+	authenticate,
+	validate({ query: listProductsQuerySchema }),
+	getProducts
+);
 
-/**
- * @swagger
- * /products:
- *   get:
- *     summary: Get all products
- *     tags: [Products]
- *     responses:
- *       200:
- *         description: List of products
- */
-router.get("/", authenticate, getProducts);
-
-/**
- * @swagger
- * /products:
- *   post:
- *     summary: Create a product
- *     tags: [Products]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, price]
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *     responses:
- *       201:
- *         description: Product created
- */
 router.post(
 	"/",
 	authenticate,
@@ -252,74 +255,26 @@ router.post(
 	createProductHandler
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   get:
- *     summary: Get product by ID
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product found
- *       404:
- *         description: Product not found
- */
-router.get("/:id", authenticate, validate(idParamSchema), getProductById);
+router.get(
+	"/:id",
+	authenticate,
+	validate({ params: productIdParamsSchema }),
+	getProductById
+);
 
-/**
- * @swagger
- * /products/{id}:
- *   patch:
- *     summary: Update product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Product updated
- */
 router.patch(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate({ ...idParamSchema, body: updateProductSchema }),
+	validate({ params: productIdParamsSchema, body: updateProductSchema }),
 	updateProductHandler
 );
 
-/**
- * @swagger
- * /products/{id}:
- *   delete:
- *     summary: Delete product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       204:
- *         description: Product deleted
- */
 router.delete(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate(idParamSchema),
+	validate({ params: productIdParamsSchema }),
 	deleteProduct
 );
 
@@ -347,7 +302,76 @@ router.use("/products", productRoutes); // Add this
 export default router;
 ```
 
-### Step 5: Add Tests
+### Step 5: Describe the Routes
+
+The API document is built from route descriptions that hold the same zod
+schemas the validators run. Create `src/openapi/paths/products.ts`:
+
+```typescript
+import { z } from "zod";
+import {
+	createProductSchema,
+	updateProductSchema,
+	productIdParamsSchema,
+	listProductsQuerySchema,
+	productSchema,
+} from "../../models/product.model";
+import { describeRoutes, named } from "../registry";
+
+const product = named("Product", productSchema);
+
+const productPage = named(
+	"ProductPage",
+	z.strictObject({
+		items: z.array(product),
+		total: z.number().int(),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
+
+describeRoutes([
+	{
+		method: "get",
+		path: "/products",
+		operationId: "getProducts",
+		summary: "Get a page of products",
+		tags: ["Products"],
+		access: "session",
+		request: { query: listProductsQuerySchema },
+		responses: {
+			200: { description: "A page of products", schema: productPage },
+			401: "Unauthorized",
+		},
+	},
+	{
+		method: "post",
+		path: "/products",
+		operationId: "createProduct",
+		summary: "Create a product",
+		tags: ["Products"],
+		access: "session",
+		csrf: true,
+		request: { body: createProductSchema },
+		responses: {
+			201: { description: "Product created", schema: product },
+			400: "Validation error",
+			401: "Unauthorized",
+			403: "Invalid CSRF token",
+		},
+	},
+	// ...GET, PATCH and DELETE /products/:id the same way
+]);
+```
+
+Then import it in `src/openapi/index.ts`, add `["/products", productRoutes]`
+to the `mounts` list in `src/openapi/__tests__/openapi.test.ts`, and run
+`npm run openapi` to regenerate `openapi.json`. The openapi tests fail if a
+mounted route is not described, if a description names a different schema
+object than its validator runs, or if `openapi.json` is stale. In route tests,
+`createTestApp` checks every JSON response against the description.
+
+### Step 6: Add Tests
 
 Create `src/models/__tests__/product.model.test.ts`:
 
@@ -417,16 +441,17 @@ describe("Product Routes", () => {
 	});
 
 	describe("GET /api/v1/products", () => {
-		it("should return array", async () => {
+		it("should return a page", async () => {
 			const response = await request(app).get("/api/v1/products");
 			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			expect(response.body).toMatchObject({ limit: 20, offset: 0 });
+			expect(Array.isArray(response.body.items)).toBe(true);
 		});
 	});
 });
 ```
 
-### Step 6: Run Tests
+### Step 7: Run Tests
 
 ```bash
 npm test
@@ -477,7 +502,10 @@ not run, so name the narrowest parent that covers your hosts.
 
 ## API Documentation
 
-Swagger UI available at `http://localhost:3000/docs` when the server is running.
+Swagger UI is at `http://localhost:3000/docs` and the raw document at `/docs.json`
+when the server runs outside production. The same document is committed as
+`openapi.json`; regenerate it with `npm run openapi` after changing a route
+description or a schema it uses.
 
 ## Key Patterns
 
@@ -523,6 +551,11 @@ The CSRF token is HMAC-bound to the access-token cookie, so it stops validating 
 that cookie rotates. Login and refresh both return a fresh `csrfToken` in the response
 body; a client that caches the one from login gets 403s from the first refresh onward, at
 `JWT_ACCESS_EXPIRY` old. Read it from each response rather than storing it once.
+
+`POST /auth/refresh` needs the `x-csrf-token` header too, so a cross-site form cannot
+rotate the session when `COOKIE_SAME_SITE=none`. Send the token you already hold. The
+`access_token` cookie is kept for `JWT_REFRESH_EXPIRY`, not `JWT_ACCESS_EXPIRY`, so it is
+still there to check the token against after the JWT inside it has expired.
 
 A second cookie of the same name is refused rather than resolved. Any host under
 `COOKIE_DOMAIN` can set `access_token`, browsers send both copies, and nothing says which

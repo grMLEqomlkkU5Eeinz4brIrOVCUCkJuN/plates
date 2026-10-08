@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { z } from "zod";
 import {
 	generateAccessToken,
 	generateRefreshToken,
@@ -9,13 +8,8 @@ import {
 } from "../middleware/auth";
 import { clearCsrfCookie, generateToken } from "../middleware/csrf";
 import { createError } from "../middleware/errorHandler";
+import { LoginData } from "../models/auth.model";
 
-export const loginSchema = z.object({
-	email: z.email("Invalid email format"),
-	password: z.string().min(1, "Password is required"),
-});
-
-export type LoginData = z.infer<typeof loginSchema>;
 
 export const login = (req: Request, res: Response): void => {
 	const { email } = req.body as LoginData;

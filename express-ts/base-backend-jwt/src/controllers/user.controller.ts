@@ -5,6 +5,7 @@ import {
 	CreateUserData,
 	UpdateUserData,
 	UserData,
+	ListUsersQuery,
 } from "../models/user.model";
 import { createError } from "../middleware/errorHandler";
 
@@ -18,8 +19,16 @@ export const createUserHandler = (req: Request, res: Response): void => {
 	res.status(201).json(user);
 };
 
-export const getUsers = (_req: Request, res: Response): void => {
-	res.json([...users.values()]);
+// Insertion order, so an offset stays put while users are only added.
+export const getUsers = (req: Request, res: Response): void => {
+	// validate() has replaced req.query with listUsersQuerySchema's output.
+	const { limit, offset } = req.query as unknown as ListUsersQuery;
+	res.json({
+		items: users.values().drop(offset).take(limit).toArray(),
+		total: users.size,
+		limit,
+		offset,
+	});
 };
 
 export const getUserById = (
