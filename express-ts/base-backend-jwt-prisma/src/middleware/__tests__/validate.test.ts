@@ -21,7 +21,7 @@ describe("validate", () => {
 		});
 
 		expect(error).toBeUndefined();
-		expect(req.query).toEqual({ limit: 5 });
+		expect(req.query).toEqual({ limit: 5, offset: 0 });
 	});
 
 	it("applies the default page size when the caller names none", () => {
@@ -29,6 +29,6 @@ describe("validate", () => {
 
 		validate({ query: listUsersQuery })(req, {} as Response, () => undefined);
 
-		expect(req.query).toEqual({ limit: 20 });
+		expect(req.query).toEqual({ limit: 20, offset: 0 });
 	});
 });

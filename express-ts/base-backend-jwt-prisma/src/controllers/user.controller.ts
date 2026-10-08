@@ -45,9 +45,7 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
 	// validate() has replaced req.query with the parsed value. Express types
 	// the property as ParsedQs whatever ran before the handler, and the two
 	// shapes do not overlap enough for a plain cast, hence the two-step one.
-	const users = await listPublicUsers(req.query as unknown as ListUsersQuery);
-
-	res.json({ users });
+	res.json(await listPublicUsers(req.query as unknown as ListUsersQuery));
 };
 
 export const getUser = async (req: Request<{ id: string }>, res: Response): Promise<void> => {

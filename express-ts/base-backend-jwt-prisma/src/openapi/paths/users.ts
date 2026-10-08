@@ -10,7 +10,15 @@ import { account, publicUser } from "./user.schemas";
 
 const accountEnvelope = named("AccountEnvelope", z.strictObject({ user: account }));
 const publicUserEnvelope = named("PublicUserEnvelope", z.strictObject({ user: publicUser }));
-const publicUserPage = named("PublicUserPage", z.strictObject({ users: z.array(publicUser) }));
+const publicUserPage = named(
+	"PublicUserPage",
+	z.strictObject({
+		items: z.array(publicUser),
+		total: z.number().int().min(0),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
 
 const unauthenticated = "UNAUTHENTICATED, TOKEN_EXPIRED or TOKEN_INVALID.";
 
@@ -72,7 +80,7 @@ describeRoutes([
 		operationId: "listUsers",
 		summary: "A page of users, oldest first.",
 		description:
-			"Cursor pagination. `cursor` is the id of the last user in the previous page; a page shorter than `limit` is the end. `limit` is capped at 100 on the server.",
+			"Offset pagination. `total` counts every user; `limit` (default 20) is capped at 100 on the server, `offset` defaults to 0.",
 		tags: ["Users"],
 		access: "session",
 		request: { query: listUsersQuery },

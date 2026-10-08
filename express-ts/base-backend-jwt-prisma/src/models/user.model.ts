@@ -71,18 +71,23 @@ export const userIdParams = z.object({
 });
 
 /**
- * Cursor pagination, keyed on the row id after ordering by (createdAt, id).
- * The cursor is the id of the last row the caller was given; a page shorter
- * than `limit` is how the caller knows the list has ended. The ceiling is
- * server-enforced, so a caller cannot ask for the table.
+ * Offset pagination over (createdAt, id). The ceiling is server-enforced, so a
+ * caller cannot ask for the table. An offset can skip or repeat a row when an
+ * account is created or closed between two pages; for a directory that is the
+ * accepted price of a `total` the client can show.
  */
 const LIST_LIMIT_MAX = 100;
 
 export const listUsersQuery = z.object({
 	limit: z.coerce.number().int().min(1).max(LIST_LIMIT_MAX).default(20),
-	cursor: z.uuid("Not a cursor.").optional(),
+	offset: z.coerce.number().int().min(0).default(0),
 });
 
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuery>;
+
+export interface PublicUserPage extends ListUsersQuery {
+	items: PublicUser[];
+	total: number;
+}

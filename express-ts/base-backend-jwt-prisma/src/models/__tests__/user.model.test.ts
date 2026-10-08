@@ -62,14 +62,15 @@ describe("updateAccountSchema", () => {
 
 describe("listUsersQuery", () => {
 	it("defaults the page size and caps it", () => {
-		expect(listUsersQuery.parse({})).toEqual({ limit: 20 });
-		expect(listUsersQuery.parse({ limit: "100" })).toEqual({ limit: 100 });
+		expect(listUsersQuery.parse({})).toEqual({ limit: 20, offset: 0 });
+		expect(listUsersQuery.parse({ limit: "100" })).toEqual({ limit: 100, offset: 0 });
 		expect(listUsersQuery.safeParse({ limit: "101" }).success).toBe(false);
 		expect(listUsersQuery.safeParse({ limit: "0" }).success).toBe(false);
 	});
 
-	it("refuses a cursor that is not an id", () => {
-		expect(listUsersQuery.safeParse({ cursor: "last-page" }).success).toBe(false);
+	it("refuses an offset that is not a whole number of rows", () => {
+		expect(listUsersQuery.safeParse({ offset: "-1" }).success).toBe(false);
+		expect(listUsersQuery.safeParse({ offset: "1.5" }).success).toBe(false);
 	});
 });
 

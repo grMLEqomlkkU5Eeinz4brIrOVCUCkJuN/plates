@@ -283,15 +283,28 @@
 			"PublicUserPage": {
 				"type": "object",
 				"properties": {
-					"users": {
+					"items": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/PublicUser"
 						}
+					},
+					"total": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"limit": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
 					}
 				},
 				"required": [
-					"users"
+					"items",
+					"total",
+					"limit",
+					"offset"
 				],
 				"additionalProperties": false
 			}
@@ -880,7 +893,7 @@
 			"get": {
 				"operationId": "listUsers",
 				"summary": "A page of users, oldest first.",
-				"description": "Cursor pagination. `cursor` is the id of the last user in the previous page; a page shorter than `limit` is the end. `limit` is capped at 100 on the server.",
+				"description": "Offset pagination. `total` counts every user; `limit` (default 20) is capped at 100 on the server, `offset` defaults to 0.",
 				"tags": [
 					"Users"
 				],
@@ -903,11 +916,13 @@
 					},
 					{
 						"schema": {
-							"type": "string",
-							"format": "uuid"
+							"type": "integer",
+							"nullable": true,
+							"minimum": 0,
+							"default": 0
 						},
 						"required": false,
-						"name": "cursor",
+						"name": "offset",
 						"in": "query"
 					}
 				],

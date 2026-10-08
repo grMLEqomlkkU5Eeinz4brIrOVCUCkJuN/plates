@@ -7,6 +7,7 @@ import {
 	type Account,
 	type ListUsersQuery,
 	type PublicUser,
+	type PublicUserPage,
 	type UpdateAccountInput,
 } from "../models/user.model";
 import { verifyPassword } from "./password.service";
@@ -93,17 +94,19 @@ export const findPublicUser = async (id: string): Promise<PublicUser> => {
 };
 
 /**
- * Ordered by (createdAt, id) so the order is total and a cursor cannot skip
- * or repeat a row when two accounts share a timestamp. Prisma's cursor is the
- * unique id; it applies the composite order itself. A cursor that names a row
- * which no longer exists yields an empty page rather than an error.
+ * Ordered by (createdAt, id) so the order is total when two accounts share a
+ * timestamp. The page and the count run in one transaction so `total` counts
+ * the same table the page was cut from.
  */
-export const listPublicUsers = async (query: ListUsersQuery): Promise<PublicUser[]> => {
-	const rows = await prisma.user.findMany({
-		take: query.limit,
-		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-		...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
-	});
+export const listPublicUsers = async (query: ListUsersQuery): Promise<PublicUserPage> => {
+	const [rows, total] = await prisma.$transaction([
+		prisma.user.findMany({
+			skip: query.offset,
+			take: query.limit,
+			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+		}),
+		prisma.user.count(),
+	]);
 
-	return rows.map(toPublicUser);
+	return { items: rows.map(toPublicUser), total, limit: query.limit, offset: query.offset };
 };

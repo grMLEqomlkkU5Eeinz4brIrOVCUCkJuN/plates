@@ -120,8 +120,9 @@ and takes the current password to do so. There is no `PATCH /users/:id`,
 because an ownership check that is written down anywhere can be forgotten
 somewhere; if you need an administrator, that is a role and its own router.
 
-`GET /users` is a cursor-paginated directory (`limit` capped at 100 on the
-server, `cursor` the id of the last row seen) and `GET /users/:id` one entry
+`GET /users` is an offset-paginated directory answering
+`{ items, total, limit, offset }` (`limit` defaults to 20 and is capped at 100
+on the server) and `GET /users/:id` one entry
 of it. Both answer the public projection: id, name, when they joined. The
 email is a login identifier and does not appear.
 
