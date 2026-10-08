@@ -56,3 +56,18 @@ export const withCsrf = (session: TestSession): Record<string, string> => ({
 	...asUser(session),
 	"x-csrf-token": session.csrfToken,
 });
+
+/** POST /auth/refresh as the browser sends it: every cookie of the session,
+ *  optionally with a different refresh token, and the CSRF header. */
+export const refreshAs = (
+	app: Express,
+	session: TestSession,
+	refreshToken = session.refreshToken
+): request.Test =>
+	request(app)
+		.post("/api/v1/auth/refresh")
+		.set("Cookie", [
+			...session.cookies.filter((pair) => !pair.startsWith("refresh_token=")),
+			`refresh_token=${refreshToken}`,
+		].join("; "))
+		.set("x-csrf-token", session.csrfToken);

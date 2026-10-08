@@ -18,7 +18,10 @@ export const email = z
 	.string()
 	.trim()
 	.toLowerCase()
-	.pipe(z.email("A valid email address is required.").max(254));
+	.pipe(z.email("A valid email address is required.").max(254))
+	// The document renders a pipe as its input, a bare string; say what the
+	// output side checks.
+	.describe("An email address of at most 254 characters, trimmed and lowercased first.");
 
 /**
  * Ten characters, no composition rules. Length is the only requirement that

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { createTestApp } from "../../../../test/app";
 import { resetDatabase } from "../../../../test/db";
-import { PASSWORD, asUser, signUp, withCsrf, type TestSession } from "../../../../test/auth";
+import { PASSWORD, asUser, refreshAs, signUp, withCsrf, type TestSession } from "../../../../test/auth";
 
 describe("user routes", () => {
 	const app = createTestApp();
@@ -117,40 +117,49 @@ describe("user routes", () => {
 			expect(afterwards.body.code).toBe("UNAUTHENTICATED");
 
 			// The refresh family went with the row, by cascade.
-			const refresh = await request(app)
-				.post("/api/v1/auth/refresh")
-				.set("Cookie", `refresh_token=${session.refreshToken}`);
+			const refresh = await refreshAs(app, session);
 			expect(refresh.status).toBe(401);
+			expect(refresh.body.code).toBe("REFRESH_INVALID");
 		});
 	});
 
 	describe("GET /api/v1/users", () => {
-		it("pages oldest first by cursor, and a short page is the end", async () => {
+		it("pages oldest first by offset, with the total", async () => {
 			const second = await signUp(app, "second@example.com", "Second");
 			const third = await signUp(app, "third@example.com", "Third");
+			const ids = (body: { items: Array<{ id: string }> }): string[] =>
+				body.items.map((user) => user.id);
 
 			const page1 = await request(app).get("/api/v1/users?limit=2").set(asUser(session));
 			expect(page1.status).toBe(200);
-			expect(page1.body.users.map((user: { id: string }) => user.id)).toEqual([
-				session.userId,
-				second.userId,
-			]);
+			expect(ids(page1.body)).toEqual([session.userId, second.userId]);
+			expect(page1.body).toMatchObject({ total: 3, limit: 2, offset: 0 });
 
-			const page2 = await request(app)
-				.get(`/api/v1/users?limit=2&cursor=${second.userId}`)
-				.set(asUser(session));
-			expect(page2.body.users.map((user: { id: string }) => user.id)).toEqual([third.userId]);
+			const page2 = await request(app).get("/api/v1/users?limit=2&offset=2").set(asUser(session));
+			expect(ids(page2.body)).toEqual([third.userId]);
+			expect(page2.body).toMatchObject({ total: 3, limit: 2, offset: 2 });
 
-			const page3 = await request(app)
-				.get(`/api/v1/users?limit=2&cursor=${third.userId}`)
-				.set(asUser(session));
-			expect(page3.body.users).toEqual([]);
+			const past = await request(app).get("/api/v1/users?limit=2&offset=3").set(asUser(session));
+			expect(past.body).toEqual({ items: [], total: 3, limit: 2, offset: 3 });
+		});
+
+		it("defaults to the first 20", async () => {
+			const response = await request(app).get("/api/v1/users").set(asUser(session));
+
+			expect(response.body).toMatchObject({ total: 1, limit: 20, offset: 0 });
+		});
+
+		it("refuses a negative offset", async () => {
+			const response = await request(app).get("/api/v1/users?offset=-1").set(asUser(session));
+
+			expect(response.status).toBe(400);
+			expect(response.body.details[0].field).toBe("query.offset");
 		});
 
 		it("shows nobody's email", async () => {
 			const response = await request(app).get("/api/v1/users").set(asUser(session));
 
-			expect(response.body.users).toEqual([
+			expect(response.body.items).toEqual([
 				{ id: session.userId, name: "Me", createdAt: expect.any(String) },
 			]);
 		});

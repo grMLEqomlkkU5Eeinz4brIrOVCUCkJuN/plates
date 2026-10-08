@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import request from "supertest";
 import { createTestApp } from "../../../../test/app";
 import { resetDatabase } from "../../../../test/db";
-import { PASSWORD, asUser, cookiePairs, cookieValue, signUp, withCsrf } from "../../../../test/auth";
+import { PASSWORD, asUser, cookiePairs, cookieValue, refreshAs, signUp, withCsrf } from "../../../../test/auth";
 
 /**
  * Runs against the real database, migrated by `prisma migrate deploy`: what
@@ -127,15 +127,10 @@ describe("auth routes", () => {
 	});
 
 	describe("POST /api/v1/auth/refresh", () => {
-		const refreshWith = (refreshToken: string): request.Test =>
-			request(app)
-				.post("/api/v1/auth/refresh")
-				.set("Cookie", `refresh_token=${refreshToken}`);
-
 		it("rotates the pair, and the spent token revokes the family on reuse", async () => {
 			const session = await signUp(app, "refresh@example.com");
 
-			const first = await refreshWith(session.refreshToken);
+			const first = await refreshAs(app, session);
 			expect(first.status).toBe(200);
 			expect(typeof first.body.csrfToken).toBe("string");
 
@@ -145,18 +140,47 @@ describe("auth routes", () => {
 			expect(nextRefresh).not.toBe(session.refreshToken);
 
 			// A client that lost the first response, or a thief: same answer.
-			const replay = await refreshWith(session.refreshToken);
+			const replay = await refreshAs(app, session);
 			expect(replay.status).toBe(401);
 			expect(replay.body.code).toBe("REFRESH_REUSED");
 
 			// The token the honest client holds is dead too, because the family is.
-			const afterReplay = await refreshWith(nextRefresh);
+			const afterReplay = await refreshAs(app, session, nextRefresh);
 			expect(afterReplay.status).toBe(401);
 			expect(afterReplay.body.code).toBe("REFRESH_INVALID");
 		});
 
+		it("renews a session whose access JWT has expired", async () => {
+			const session = await signUp(app, "expired@example.com");
+			const realNow = Date.now();
+			// Past JWT_ACCESS_EXPIRY (15m), well inside the refresh lifetime.
+			const later = jest.spyOn(Date, "now").mockReturnValue(realNow + 16 * 60 * 1000);
+
+			try {
+				const me = await request(app).get("/api/v1/users/me").set(asUser(session));
+				expect(me.status).toBe(401);
+				expect(me.body.code).toBe("TOKEN_EXPIRED");
+
+				const response = await refreshAs(app, session);
+				expect(response.status).toBe(200);
+			} finally {
+				later.mockRestore();
+			}
+		});
+
+		it("sets the access cookie for the refresh lifetime, not the JWT's", async () => {
+			const response = await request(app)
+				.post("/api/v1/auth/register")
+				.send({ email: "max-age@example.com", name: "Max Age", password: PASSWORD });
+
+			const access = (response.get("Set-Cookie") ?? []).find((c) => c.startsWith("access_token="));
+			// REFRESH_TOKEN_EXPIRY=7d in .env.test.
+			expect(access).toContain("Max-Age=604800");
+		});
+
 		it("answers 401 REFRESH_INVALID and clears the cookies for a token it has never seen", async () => {
-			const response = await refreshWith("not-a-token-anyone-issued");
+			const session = await signUp(app, "unknown-refresh@example.com");
+			const response = await refreshAs(app, session, "not-a-token-anyone-issued");
 
 			expect(response.status).toBe(401);
 			expect(response.body.code).toBe("REFRESH_INVALID");
@@ -167,10 +191,39 @@ describe("auth routes", () => {
 		});
 
 		it("answers 401 without a refresh cookie", async () => {
-			const response = await request(app).post("/api/v1/auth/refresh");
+			const session = await signUp(app, "no-refresh@example.com");
+			const response = await request(app)
+				.post("/api/v1/auth/refresh")
+				.set("Cookie", session.cookies.filter((pair) => !pair.startsWith("refresh_token=")).join("; "))
+				.set("x-csrf-token", session.csrfToken);
 
 			expect(response.status).toBe(401);
 			expect(response.body.code).toBe("REFRESH_INVALID");
+		});
+
+		it("refuses a cross-site refresh: the cookies without the CSRF header", async () => {
+			const session = await signUp(app, "forged-refresh@example.com");
+
+			const response = await request(app).post("/api/v1/auth/refresh").set(asUser(session));
+
+			expect(response.status).toBe(403);
+			expect(response.body.code).toBe("CSRF_INVALID");
+		});
+
+		it("refuses an anonymous CSRF token: refresh binds to the access cookie only", async () => {
+			const session = await signUp(app, "anon-token@example.com");
+			const issued = await request(app).get("/api/v1/auth/csrf-token");
+
+			const response = await request(app)
+				.post("/api/v1/auth/refresh")
+				.set("Cookie", [
+					...cookiePairs(issued.get("Set-Cookie") ?? []),
+					`refresh_token=${session.refreshToken}`,
+				].join("; "))
+				.set("x-csrf-token", issued.body.csrfToken as string);
+
+			expect(response.status).toBe(403);
+			expect(response.body.code).toBe("CSRF_INVALID");
 		});
 	});
 
@@ -181,9 +234,7 @@ describe("auth routes", () => {
 			const response = await request(app).post("/api/v1/auth/logout").set(withCsrf(session));
 			expect(response.status).toBe(204);
 
-			const afterLogout = await request(app)
-				.post("/api/v1/auth/refresh")
-				.set("Cookie", `refresh_token=${session.refreshToken}`);
+			const afterLogout = await refreshAs(app, session);
 			expect(afterLogout.status).toBe(401);
 			expect(afterLogout.body.code).toBe("REFRESH_INVALID");
 		});

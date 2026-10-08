@@ -101,6 +101,10 @@ whose path never reaches it.
 Every mutation needs the CSRF token back in `x-csrf-token`. The token is
 HMAC'd against the access cookie (`middleware/csrf.ts`), so it is bound to one
 session; `GET /auth/csrf-token` issues a fresh one after a page reload.
+`POST /auth/refresh` needs it too, since the refresh cookie rides along on a
+cross-site POST. The access cookie's Max-Age is the refresh lifetime, not the
+JWT's: `authenticate` rejects the expired JWT, but the browser keeps sending
+the cookie, so the token from login or the last refresh still checks out.
 
 A login against an unknown address costs the same as one against a known
 address (`equalisePasswordTiming`), and answers the same message, so neither
@@ -116,8 +120,9 @@ and takes the current password to do so. There is no `PATCH /users/:id`,
 because an ownership check that is written down anywhere can be forgotten
 somewhere; if you need an administrator, that is a role and its own router.
 
-`GET /users` is a cursor-paginated directory (`limit` capped at 100 on the
-server, `cursor` the id of the last row seen) and `GET /users/:id` one entry
+`GET /users` is an offset-paginated directory answering
+`{ items, total, limit, offset }` (`limit` defaults to 20 and is capped at 100
+on the server) and `GET /users/:id` one entry
 of it. Both answer the public projection: id, name, when they joined. The
 email is a login identifier and does not appear.
 
@@ -165,8 +170,15 @@ Dockerfile's `HEALTHCHECK` and any load balancer should point at that one.
 | `npm run db:deploy` | Apply committed migrations (CI, production). |
 | `npm run db:studio` | Prisma's table browser. |
 | `npm run typecheck` / `npm run lint` | Type-check everything, tests included; ESLint. |
+| `npm run openapi` | Rewrite the committed `openapi.json` from `src/openapi/`. |
 
 Requires Node 24 (see `.nvmrc`). `/docs` serves Swagger UI outside production.
+
+Each route is described once, as data, in `src/openapi/paths/`, using the same
+zod schemas `validate()` runs. The suite fails when a mounted route has no
+description, when a description names a different schema object from the one
+the route validates with, when a response body in any route test does not
+parse against its described schema, and when `openapi.json` is stale.
 
 ## Things that will bite you
 

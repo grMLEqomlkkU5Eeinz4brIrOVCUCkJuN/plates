@@ -8,22 +8,26 @@ import { email, name } from "./auth.model";
  * `passwordHash`.
  */
 
-/** What the account holder sees about themselves. */
-export interface Account {
-	id: string;
-	email: string;
-	name: string;
-	createdAt: Date;
-	updatedAt: Date;
-}
+/** What the account holder sees about themselves. Dates are Date objects
+ *  here; they reach the client as ISO 8601 strings. */
+export const accountSchema = z.strictObject({
+	id: z.uuid(),
+	email: z.string(),
+	name: z.string(),
+	createdAt: z.date(),
+	updatedAt: z.date(),
+});
 
 /** What any signed-in caller may see about anyone. No email: it is a login
  *  identifier, and a directory of them is a phishing list. */
-export interface PublicUser {
-	id: string;
-	name: string;
-	createdAt: Date;
-}
+export const publicUserSchema = z.strictObject({
+	id: z.uuid(),
+	name: z.string(),
+	createdAt: z.date(),
+});
+
+export type Account = z.infer<typeof accountSchema>;
+export type PublicUser = z.infer<typeof publicUserSchema>;
 
 export const toAccount = (user: User): Account => ({
 	id: user.id,
@@ -46,12 +50,15 @@ export const toPublicUser = (user: User): PublicUser => ({
  * that is its own endpoint when you add it), and `id`, `createdAt` and
  * `passwordHash` are reachable from nowhere.
  */
+const NOTHING_TO_CHANGE = "Name at least one field to change.";
+
 export const updateAccountSchema = z
 	.strictObject({
 		email: email.optional(),
 		name: name.optional(),
 	})
-	.refine((patch) => Object.keys(patch).length > 0, "Name at least one field to change.");
+	.refine((patch) => Object.keys(patch).length > 0, NOTHING_TO_CHANGE)
+	.describe(`Every field is optional, but an empty object is a 400: "${NOTHING_TO_CHANGE}"`);
 
 /** Closing an account is final, so it asks for the password rather than
  *  trusting the session in hand. */
@@ -64,18 +71,23 @@ export const userIdParams = z.object({
 });
 
 /**
- * Cursor pagination, keyed on the row id after ordering by (createdAt, id).
- * The cursor is the id of the last row the caller was given; a page shorter
- * than `limit` is how the caller knows the list has ended. The ceiling is
- * server-enforced, so a caller cannot ask for the table.
+ * Offset pagination over (createdAt, id). The ceiling is server-enforced, so a
+ * caller cannot ask for the table. An offset can skip or repeat a row when an
+ * account is created or closed between two pages; for a directory that is the
+ * accepted price of a `total` the client can show.
  */
 const LIST_LIMIT_MAX = 100;
 
 export const listUsersQuery = z.object({
 	limit: z.coerce.number().int().min(1).max(LIST_LIMIT_MAX).default(20),
-	cursor: z.uuid("Not a cursor.").optional(),
+	offset: z.coerce.number().int().min(0).default(0),
 });
 
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuery>;
+
+export interface PublicUserPage extends ListUsersQuery {
+	items: PublicUser[];
+	total: number;
+}

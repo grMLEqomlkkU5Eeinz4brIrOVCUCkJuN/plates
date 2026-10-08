@@ -1,6 +1,7 @@
-import { afterAll, beforeEach } from "@jest/globals";
+import { afterAll, afterEach, beforeEach, expect } from "@jest/globals";
 import { resetRateLimits, stopRateLimitSweep } from "../middleware/rateLimit";
 import { disconnectDatabase } from "../db/prisma";
+import { violations } from "../openapi/responseCheck";
 
 // Both imports pull in config/env.ts, which parses process.env once. That is
 // fine for the one suite that re-reads the environment per case (the cookie
@@ -11,6 +12,13 @@ import { disconnectDatabase } from "../db/prisma";
 // test spending the next one's budget is a failure nobody can read.
 beforeEach(() => {
 	resetRateLimits();
+});
+
+// A body the OpenAPI description does not match fails the test that sent it,
+// naming the route, the status and the field.
+afterEach(() => {
+	const found = violations.splice(0);
+	expect(found).toEqual([]);
 });
 
 // The pool keeps the event loop alive; without this jest reports an open

@@ -2,31 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import createError, { HttpError } from "http-errors";
 import { env } from "../config/env";
 import logger from "../utils/logger";
+import type { ErrorCode } from "../models/error.model";
 
 export { HttpError };
-
-/**
- * The codes clients branch on. The HTTP status says how to react in general,
- * the code says which failure it was, and the message is for a human reading
- * a log or a debug console. Adding a case here is how a new failure becomes
- * part of the contract; throwing a bare status is how it stays undocumented.
- */
-export type ErrorCode =
-	| "VALIDATION_ERROR"
-	| "MALFORMED_BODY"
-	| "PAYLOAD_TOO_LARGE"
-	| "UNAUTHENTICATED"
-	| "TOKEN_INVALID"
-	| "TOKEN_EXPIRED"
-	| "INVALID_CREDENTIALS"
-	| "EMAIL_TAKEN"
-	| "REFRESH_INVALID"
-	| "REFRESH_REUSED"
-	| "CSRF_INVALID"
-	| "NOT_FOUND"
-	| "RATE_LIMITED"
-	| "DEPENDENCY_UNAVAILABLE"
-	| "INTERNAL";
 
 interface ErrorOptions {
 	/**

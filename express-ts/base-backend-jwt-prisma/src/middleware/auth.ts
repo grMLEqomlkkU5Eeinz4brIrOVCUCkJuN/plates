@@ -2,7 +2,6 @@ import { Request, Response, NextFunction, CookieOptions } from "express";
 import { env } from "../config/env";
 import { httpError } from "./errorHandler";
 import {
-	ACCESS_TTL_SECONDS,
 	REFRESH_TTL_SECONDS,
 	verifyAccessToken,
 } from "../services/token.service";
@@ -13,12 +12,16 @@ export interface AuthContext {
 	sessionId: string;
 }
 
-// Derived from the token lifetimes rather than restated, so a cookie cannot be
-// discarded while the token it carries is still valid, which is what a
-// hand-synced literal does the first time somebody changes JWT_ACCESS_EXPIRY
-// and not this line. res.cookie wants milliseconds.
-const ACCESS_MAX_AGE_MS = ACCESS_TTL_SECONDS * 1000;
-const REFRESH_MAX_AGE_MS = REFRESH_TTL_SECONDS * 1000;
+// Derived from the token lifetimes rather than restated, which is what a
+// hand-synced literal drifts from. res.cookie wants milliseconds.
+//
+// The access cookie outlives the JWT inside it on purpose: it lives as long as
+// the refresh cookie. authenticate still rejects the expired JWT, but the
+// browser keeps sending the cookie, and that cookie is what the CSRF token is
+// bound to (middleware/csrf.ts). With the JWT's own lifetime the browser would
+// drop it just before every refresh, and POST /auth/refresh could not be
+// CSRF-checked against the session it renews.
+const SESSION_COOKIE_MAX_AGE_MS = REFRESH_TTL_SECONDS * 1000;
 
 // A cookie is identified by name, domain and path together, so clearAuthCookies
 // has to name the domain setAuthCookies used or the browser keeps the cookie and
@@ -76,12 +79,12 @@ export const setAuthCookies = (
 ): void => {
 	res.cookie(ACCESS_COOKIE, accessToken, {
 		...cookieOptions,
-		maxAge: ACCESS_MAX_AGE_MS,
+		maxAge: SESSION_COOKIE_MAX_AGE_MS,
 	});
 
 	res.cookie(REFRESH_COOKIE, refreshToken, {
 		...cookieOptions,
-		maxAge: REFRESH_MAX_AGE_MS,
+		maxAge: SESSION_COOKIE_MAX_AGE_MS,
 		path: REFRESH_COOKIE_PATH,
 	});
 };

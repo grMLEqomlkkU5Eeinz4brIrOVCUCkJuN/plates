@@ -1,16 +1,18 @@
-import express, { Express } from "express";
+import express, { Express, RequestHandler } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec } from "./config/swagger";
+import { buildOpenApiDocument } from "./openapi";
 import { env } from "./config/env";
 import { requestId } from "./middleware/requestId";
 import { httpLogger } from "./middleware/httpLogger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import routes from "./routes";
 
-export const createApp = (): Express => {
+/** `beforeRoutes` is for the test app, which checks every response body
+ *  against the OpenAPI description (openapi/responseCheck.ts). */
+export const createApp = (beforeRoutes: RequestHandler[] = []): Express => {
 	const app = express();
 
 	// req.ip comes from this. Left at the default behind a proxy, the rate
@@ -55,10 +57,12 @@ export const createApp = (): Express => {
 	// The schema browser is a development tool, not a product surface: in
 	// production it publishes the route list to anyone who finds it.
 	if (env.NODE_ENV !== "production") {
-		app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-		app.get("/docs.json", (_req, res) => res.json(swaggerSpec));
+		const document = buildOpenApiDocument();
+		app.use("/docs", swaggerUi.serve, swaggerUi.setup(document));
+		app.get("/docs.json", (_req, res) => res.json(document));
 	}
 
+	app.use(beforeRoutes);
 	app.use(routes);
 
 	app.use(notFoundHandler);
