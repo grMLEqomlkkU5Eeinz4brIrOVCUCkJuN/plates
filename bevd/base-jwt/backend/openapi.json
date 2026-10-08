@@ -3,7 +3,7 @@
 	"info": {
 		"title": "bevd-base-jwt REST API",
 		"version": "1.0.0",
-		"description": "REST twins of the core tRPC procedures. Each route calls the same service function as the procedure it mirrors (see x-trpc-procedure), validates with the same arktype schema, and applies the same authorization.\n\nThese procedures are RPC-only and are not described here: auth.register, auth.logout, health.ping, health.db, post.update, post.delete, user.list, user.setRole, user.delete. Call them over /trpc, or over gRPC."
+		"description": "REST twins of the core tRPC procedures. Each route calls the same service function as the procedure it mirrors (see x-trpc-procedure), validates with the same arktype schema, and applies the same authorization.\n\nThese procedures are RPC-only and are not described here: auth.register, health.ping, health.db, post.update, post.delete, user.list, user.setRole, user.delete. Call them over /trpc, or over gRPC."
 	},
 	"tags": [
 		{
@@ -137,6 +137,40 @@
 					},
 					"401": {
 						"description": "No refresh cookie, or it is unknown, revoked, expired or already used.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/logout": {
+			"post": {
+				"operationId": "logout",
+				"summary": "End this session: revoke the refresh token and clear both cookies.",
+				"description": "Signs out this browser only, not every session. Takes no body but must be sent as content-type application/json, so a cross-site form cannot trigger it without a CORS preflight. Succeeds with no refresh cookie too: there is nothing to revoke and the cookies are cleared all the same.",
+				"tags": [
+					"Auth"
+				],
+				"security": [],
+				"x-trpc-procedure": "auth.logout",
+				"responses": {
+					"200": {
+						"description": "Logged out.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/LoggedOut"
+								}
+							}
+						}
+					},
+					"415": {
+						"description": "Not sent as application/json.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -486,6 +520,18 @@
 					"name",
 					"role",
 					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"LoggedOut": {
+				"type": "object",
+				"properties": {
+					"ok": {
+						"const": true
+					}
+				},
+				"required": [
+					"ok"
 				],
 				"additionalProperties": false
 			},

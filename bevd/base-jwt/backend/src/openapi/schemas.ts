@@ -24,6 +24,8 @@ export const UserSchema = named(
 	}),
 );
 
+export const LoggedOutSchema = named("LoggedOut", type({ "+": "reject", ok: "true" }));
+
 export const PostSchema = named(
 	"Post",
 	type({

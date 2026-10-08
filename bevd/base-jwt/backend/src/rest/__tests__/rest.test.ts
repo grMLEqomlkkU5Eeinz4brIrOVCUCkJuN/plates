@@ -103,6 +103,69 @@ describe("rest api", () => {
 		expect((await errorOf(replayed)).message).toBe("Invalid or expired refresh token");
 	});
 
+	it("logs out: revokes the refresh token and clears both cookies", async () => {
+		const login = await call("POST", "/auth/login", {
+			body: { email: "alice@example.com", password: "password123" },
+		});
+		const refreshCookie = cookieFrom(login, REFRESH_COOKIE);
+
+		const out = await call("POST", "/auth/logout", {
+			headers: { cookie: refreshCookie, "content-type": "application/json" },
+		});
+
+		expect(out.status).toBe(200);
+		await expect(out.json()).resolves.toEqual({ ok: true });
+
+		const cleared = out.headers.getSetCookie();
+		expect(cleared).toHaveLength(2);
+		for (const name of [ACCESS_COOKIE, REFRESH_COOKIE]) {
+			expect(cleared.find((c) => c.startsWith(`${name}=;`))).toMatch(/Max-Age=0/);
+		}
+
+		const replayed = await call("POST", "/auth/refresh", {
+			headers: { cookie: refreshCookie },
+		});
+		expect(replayed.status).toBe(401);
+		expect((await errorOf(replayed)).message).toBe("Invalid or expired refresh token");
+	});
+
+	it("refuses a logout that is not JSON, as tRPC does, and leaves the session alone", async () => {
+		const login = await call("POST", "/auth/login", {
+			body: { email: "alice@example.com", password: "password123" },
+		});
+		const refreshCookie = cookieFrom(login, REFRESH_COOKIE);
+
+		// What a cross-site form or a text/plain fetch would send: no CORS preflight.
+		for (const contentType of ["text/plain", "application/x-www-form-urlencoded", undefined]) {
+			const forged = await app.handle(
+				new Request("http://localhost/api/v1/auth/logout", {
+					method: "POST",
+					headers: contentType
+						? { cookie: refreshCookie, "content-type": contentType }
+						: { cookie: refreshCookie },
+					body: contentType ? "x=1" : undefined,
+				}),
+			);
+
+			expect(forged.status, contentType).toBe(415);
+			expect(forged.headers.getSetCookie()).toEqual([]);
+		}
+
+		const stillValid = await call("POST", "/auth/refresh", {
+			headers: { cookie: refreshCookie },
+		});
+		expect(stillValid.status).toBe(200);
+	});
+
+	it("logs out with no refresh cookie at all, clearing cookies anyway", async () => {
+		const out = await call("POST", "/auth/logout", {
+			headers: { "content-type": "application/json" },
+		});
+
+		expect(out.status).toBe(200);
+		expect(out.headers.getSetCookie()).toHaveLength(2);
+	});
+
 	it("refuses /auth/me without a session, and takes a bearer header instead of a cookie", async () => {
 		const anonymous = await call("GET", "/auth/me");
 		expect(anonymous.status).toBe(401);

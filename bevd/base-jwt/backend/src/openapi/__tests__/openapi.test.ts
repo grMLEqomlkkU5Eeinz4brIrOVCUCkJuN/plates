@@ -162,6 +162,7 @@ describe("access levels", () => {
 		getHealth: {},
 		login: { body: { email: "nobody@example.com", password: "whatever1" } },
 		refreshSession: {},
+		logout: { body: {} },
 		getMe: {},
 		listPosts: {},
 		getPost: { path: "/api/v1/posts/00000000-0000-4000-8000-000000000000" },

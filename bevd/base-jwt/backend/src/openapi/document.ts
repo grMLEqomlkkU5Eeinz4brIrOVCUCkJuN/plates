@@ -10,7 +10,6 @@ type Json = Record<string, unknown>;
  */
 export const RPC_ONLY_PROCEDURES = [
 	"auth.register",
-	"auth.logout",
 	"health.ping",
 	"health.db",
 	"post.update",

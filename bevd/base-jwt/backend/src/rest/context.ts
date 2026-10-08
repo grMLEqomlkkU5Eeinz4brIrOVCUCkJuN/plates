@@ -43,3 +43,34 @@ export function restContext({ db, log: root }: AppDeps) {
 export function signedIn({ ctx }: { ctx: ServiceCtx }): void {
 	requireActor(ctx.actor);
 }
+
+/**
+ * Route-level `beforeHandle` for a POST that takes no body, auth.logout's CSRF rule.
+ *
+ * tRPC answers any POST that is not `application/json` with 415. A cross-site form or a
+ * `fetch` with `text/plain` is a "simple request" that the browser sends without a CORS
+ * preflight, cookies and all; insisting on JSON means only a preflighted request (one
+ * CORS_ORIGIN allowed) gets through. A route with a body schema needs none of this:
+ * Elysia's parser already turns anything else away before it validates.
+ */
+export function jsonOnly({
+	request,
+	set,
+	requestId,
+}: {
+	request: Request;
+	set: { status?: unknown };
+	requestId: string;
+}) {
+	if (request.headers.get("content-type")?.split(";")[0]?.trim() === "application/json") return;
+
+	set.status = 415;
+
+	return {
+		error: {
+			code: "BAD_REQUEST" as const,
+			message: "Send content-type: application/json",
+			requestId,
+		},
+	};
+}

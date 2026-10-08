@@ -1,6 +1,6 @@
 import { LoginInput } from "../../models/auth";
 import { describeRoutes } from "../registry";
-import { UserSchema } from "../schemas";
+import { LoggedOutSchema, UserSchema } from "../schemas";
 
 const SETS_COOKIES =
 	"Sets the access_token and refresh_token httpOnly cookies. The tokens never appear in the body.";
@@ -34,6 +34,21 @@ describeRoutes([
 		responses: {
 			200: { description: "The user the session belongs to.", schema: UserSchema },
 			401: "No refresh cookie, or it is unknown, revoked, expired or already used.",
+		},
+	},
+	{
+		method: "post",
+		path: "/api/v1/auth/logout",
+		operationId: "logout",
+		summary: "End this session: revoke the refresh token and clear both cookies.",
+		description:
+			"Signs out this browser only, not every session. Takes no body but must be sent as content-type application/json, so a cross-site form cannot trigger it without a CORS preflight. Succeeds with no refresh cookie too: there is nothing to revoke and the cookies are cleared all the same.",
+		tags: ["Auth"],
+		access: "open",
+		procedure: "auth.logout",
+		responses: {
+			200: { description: "Logged out.", schema: LoggedOutSchema },
+			415: "Not sent as application/json.",
 		},
 	},
 	{
