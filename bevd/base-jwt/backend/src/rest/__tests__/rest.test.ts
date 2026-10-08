@@ -1,25 +1,24 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../app";
 import { createDatabase, type Database } from "../../db";
 import type { PublicUser } from "../../db/schema";
 import { ACCESS_COOKIE, REFRESH_COOKIE } from "../../http/cookies";
 import { AppError } from "../../lib/errors";
-import { logger } from "../../lib/logger";
 import { createPost } from "../../services/post.service";
+import { testApp } from "../../test/app";
 import { accessTokenFor, actorFor, seedUser } from "../../test/auth";
 import { callerAs, serviceCtx } from "../../test/context";
 import { createTestDatabase } from "../../test/db";
-import type { ErrorBody } from "../context";
+import type { ErrorBody } from "../error-body";
 
 describe("rest api", () => {
 	let db: Database;
-	let app: ReturnType<typeof createApp>;
+	let app: ReturnType<typeof testApp>;
 	let alice: PublicUser;
 	let bob: PublicUser;
 
 	beforeEach(async () => {
 		db = await createTestDatabase();
-		app = createApp({ db, log: logger });
+		app = testApp(db);
 		alice = await seedUser(db, { email: "alice@example.com", name: "Alice" });
 		bob = await seedUser(db, { email: "bob@example.com", name: "Bob" });
 	});
@@ -51,8 +50,8 @@ describe("rest api", () => {
 		return { authorization: `Bearer ${await accessTokenFor(user)}` };
 	}
 
-	async function errorOf(response: Response): Promise<ErrorBody["error"]> {
-		return ((await response.json()) as ErrorBody).error;
+	async function errorOf(response: Response): Promise<(typeof ErrorBody.infer)["error"]> {
+		return ((await response.json()) as typeof ErrorBody.infer).error;
 	}
 
 	it("logs in with cookies and returns only the user", async () => {
@@ -240,7 +239,7 @@ describe("rest api", () => {
 
 	it("never leaks internals when a query blows up", async () => {
 		const { db: missing } = createDatabase("postgres://nobody:hunter2@127.0.0.1:59999/nope");
-		const broken = createApp({ db: missing, log: logger });
+		const broken = testApp(missing);
 
 		const response = await broken.handle(
 			new Request("http://localhost/api/v1/posts", {

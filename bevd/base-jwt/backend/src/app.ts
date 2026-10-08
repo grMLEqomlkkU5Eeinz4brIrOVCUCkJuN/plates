@@ -4,10 +4,11 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
 import { env } from "./config/env";
 import type { Database } from "./db";
-import { requestContext } from "./http/request";
 import { type Logger, requestIdFrom } from "./lib/logger";
-import { REST_PREFIX, type RestExchange } from "./rest/context";
-import { restApi } from "./rest/routes";
+import { buildOpenApiDocument } from "./openapi";
+import { authRoutes } from "./rest/auth";
+import { postRoutes } from "./rest/post";
+import { requestContext } from "./rest/request";
 import { createContextFactory } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 
@@ -20,18 +21,26 @@ import { appRouter } from "./trpc/routers";
 export interface AppDeps {
 	db: Database;
 	log: Logger;
-	/**
-	 * Sees every /api/v1 response before it is sent. Only the test app passes one: it is
-	 * how openapi/responseCheck.ts holds each response to the documented schema.
-	 */
-	inspectRest?: (exchange: RestExchange) => void;
 }
 
-export function createApp({ db, log: root, inspectRest }: AppDeps) {
+export function createApp({ db, log: root }: AppDeps) {
 	return (
 		new Elysia()
 			.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-			.use(openapi({ path: "/openapi" }))
+			// The plugin renders the UI and serves the JSON, but the document is the one built
+			// from src/openapi, not one the plugin infers. Inference cannot see what the
+			// registry knows: response bodies, error statuses, which tRPC procedures are
+			// RPC-only. So every route is excluded from inference and the plugin is handed the
+			// whole document; the test suite holds /docs.json equal to openapi.json.
+			.use(
+				openapi({
+					enabled: env.NODE_ENV !== "production",
+					path: "/docs",
+					specPath: "/docs.json",
+					documentation: buildOpenApiDocument(),
+					exclude: { paths: [/.*/] },
+				}),
+			)
 
 			// Elysia's own surface: a request id per call, echoed back so a client can quote
 			// it, and one access line. /trpc is skipped here - it logs itself, per procedure,
@@ -56,9 +65,8 @@ export function createApp({ db, log: root, inspectRest }: AppDeps) {
 				);
 			})
 			.onError(({ code, error, path, requestId }) => {
-				// The REST routes map and log their own failures, most of which are a 401 or
-				// a 404 doing its job rather than anything unhandled. See rest/context.ts.
-				if (path.startsWith(REST_PREFIX)) return;
+				// The REST routes map and log their own errors; see rest/errors.ts.
+				if (path.startsWith("/api/v1")) return;
 
 				root.error({ requestId, code, path, err: error }, "unhandled request error");
 			})
@@ -67,9 +75,10 @@ export function createApp({ db, log: root, inspectRest }: AppDeps) {
 			// what the browser or a load balancer hits directly.
 			.get("/health", () => ({ status: "ok", uptime: process.uptime() }))
 
-			// REST twins of the core tRPC procedures, for callers that want plain HTTP and an
-			// OpenAPI document. Same services, same checks; see rest/routes.
-			.use(restApi({ db, log: root, inspect: inspectRest }))
+			// REST twins of the core auth and post procedures, for clients without a tRPC
+			// client. Same services, same arktype schemas; see rest/auth.ts and rest/post.ts.
+			.use(authRoutes({ db, log: root }))
+			.use(postRoutes({ db, log: root }))
 
 			// Everything under /trpc is handed to tRPC's fetch adapter.
 			//

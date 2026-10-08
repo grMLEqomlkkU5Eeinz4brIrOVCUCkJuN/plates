@@ -1,0 +1,628 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "bevd-base-jwt REST API",
+		"version": "1.0.0",
+		"description": "REST twins of the core tRPC procedures. Each route calls the same service function as the procedure it mirrors (see x-trpc-procedure), validates with the same arktype schema, and applies the same authorization.\n\nThese procedures are RPC-only and are not described here: auth.register, auth.logout, health.ping, health.db, post.update, post.delete, user.list, user.setRole, user.delete. Call them over /trpc, or over gRPC."
+	},
+	"tags": [
+		{
+			"name": "Health"
+		},
+		{
+			"name": "Auth"
+		},
+		{
+			"name": "Posts"
+		}
+	],
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Liveness: the process is up and serving HTTP.",
+				"description": "Does not touch the database. tRPC's health.db is the call that proves Postgres is reachable.",
+				"tags": [
+					"Health"
+				],
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Up, with seconds since the process started.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Health"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/login": {
+			"post": {
+				"operationId": "login",
+				"summary": "Start a session with an email and password.",
+				"description": "Sets the access_token and refresh_token httpOnly cookies. The tokens never appear in the body.",
+				"tags": [
+					"Auth"
+				],
+				"security": [],
+				"x-trpc-procedure": "auth.login",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"email": {
+										"type": "string",
+										"pattern": "^[\\w%+.-]+@[\\d.A-Za-z-]+\\.[A-Za-z]{2,}$",
+										"format": "email"
+									},
+									"password": {
+										"type": "string",
+										"maxLength": 128,
+										"minLength": 1
+									}
+								},
+								"required": [
+									"email",
+									"password"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The signed-in user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body does not match LoginInput.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Wrong email or password. Both get the same answer, so the endpoint cannot be used to probe for accounts.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/refresh": {
+			"post": {
+				"operationId": "refreshSession",
+				"summary": "Trade the refresh cookie for a new session.",
+				"description": "Sets the access_token and refresh_token httpOnly cookies. The tokens never appear in the body. The refresh token rotates: the one sent is revoked, so replaying it fails.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"refreshCookie": []
+					}
+				],
+				"x-trpc-procedure": "auth.refresh",
+				"responses": {
+					"200": {
+						"description": "The user the session belongs to.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No refresh cookie, or it is unknown, revoked, expired or already used.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/auth/me": {
+			"get": {
+				"operationId": "getMe",
+				"summary": "The signed-in user.",
+				"tags": [
+					"Auth"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"x-trpc-procedure": "auth.me",
+				"responses": {
+					"200": {
+						"description": "The caller, as stored now (not as the token remembers).",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/User"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not signed in, or the account no longer exists.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts": {
+			"get": {
+				"operationId": "listPosts",
+				"summary": "Newest posts first: the published ones, plus your own drafts.",
+				"description": "Anonymous callers see published posts only. A signed-in caller also sees their own drafts, and an admin sees everything. The limit counts only posts the caller may see. Default 20, at most 100.",
+				"tags": [
+					"Posts"
+				],
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"x-trpc-procedure": "post.list",
+				"parameters": [
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"maximum": 100,
+							"minimum": 1
+						}
+					},
+					{
+						"name": "publishedOnly",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The posts.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PostList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "limit is not an integer from 1 to 100, or publishedOnly is not true or false.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "createPost",
+				"summary": "Write a post. The author is the caller, whatever the body says.",
+				"description": "Not idempotent: sending it twice makes two posts.",
+				"tags": [
+					"Posts"
+				],
+				"security": [
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"x-trpc-procedure": "post.create",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"maxLength": 10000,
+										"minLength": 1
+									},
+									"title": {
+										"type": "string",
+										"maxLength": 200,
+										"minLength": 1
+									},
+									"published": {
+										"type": "boolean"
+									}
+								},
+								"required": [
+									"body",
+									"title"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The new post, unpublished unless the body said otherwise.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body does not match CreatePostInput.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not signed in. Checked before the body is.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/posts/{id}": {
+			"get": {
+				"operationId": "getPost",
+				"summary": "One post.",
+				"tags": [
+					"Posts"
+				],
+				"security": [
+					{},
+					{
+						"bearerAuth": []
+					},
+					{
+						"accessCookie": []
+					}
+				],
+				"x-trpc-procedure": "post.byId",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"anyOf": [
+								{
+									"type": "string",
+									"description": "a UUID",
+									"format": "uuid",
+									"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								},
+								{
+									"const": "00000000-0000-0000-0000-000000000000",
+									"description": "a UUID",
+									"format": "uuid"
+								},
+								{
+									"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+									"description": "a UUID",
+									"format": "uuid"
+								}
+							],
+							"description": "a UUID",
+							"format": "uuid"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The post.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Post"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The id is not a UUID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No such post, or a draft that is not yours. The two are deliberately indistinguishable.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "The access token, for callers with no cookie jar."
+			},
+			"accessCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "access_token",
+				"description": "Set by login and refresh. httpOnly: browser script cannot read it."
+			},
+			"refreshCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "refresh_token",
+				"description": "Set by login and refresh. Opaque, single use."
+			}
+		},
+		"schemas": {
+			"User": {
+				"type": "object",
+				"properties": {
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"email": {
+						"type": "string",
+						"pattern": "^[\\w%+.-]+@[\\d.A-Za-z-]+\\.[A-Za-z]{2,}$",
+						"format": "email"
+					},
+					"id": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"role": {
+						"enum": [
+							"admin",
+							"user"
+						]
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"createdAt",
+					"email",
+					"id",
+					"name",
+					"role",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"Post": {
+				"type": "object",
+				"properties": {
+					"authorId": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"body": {
+						"type": "string"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"id": {
+						"anyOf": [
+							{
+								"type": "string",
+								"description": "a UUID",
+								"format": "uuid",
+								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+							},
+							{
+								"const": "00000000-0000-0000-0000-000000000000",
+								"description": "a UUID",
+								"format": "uuid"
+							},
+							{
+								"const": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+								"description": "a UUID",
+								"format": "uuid"
+							}
+						],
+						"description": "a UUID",
+						"format": "uuid"
+					},
+					"published": {
+						"type": "boolean"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"authorId",
+					"body",
+					"createdAt",
+					"id",
+					"published",
+					"title",
+					"updatedAt"
+				],
+				"additionalProperties": false
+			},
+			"PostList": {
+				"type": "array",
+				"items": {
+					"$ref": "#/components/schemas/Post"
+				}
+			},
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"const": "ok"
+					},
+					"uptime": {
+						"type": "number"
+					}
+				},
+				"required": [
+					"status",
+					"uptime"
+				],
+				"additionalProperties": false
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "object",
+						"properties": {
+							"code": {
+								"enum": [
+									"BAD_REQUEST",
+									"CONFLICT",
+									"FORBIDDEN",
+									"INTERNAL",
+									"NOT_FOUND",
+									"UNAUTHORIZED"
+								]
+							},
+							"message": {
+								"type": "string"
+							},
+							"requestId": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"code",
+							"message",
+							"requestId"
+						],
+						"additionalProperties": false
+					}
+				},
+				"required": [
+					"error"
+				],
+				"additionalProperties": false
+			}
+		}
+	}
+}
