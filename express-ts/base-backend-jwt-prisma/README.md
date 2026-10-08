@@ -165,8 +165,15 @@ Dockerfile's `HEALTHCHECK` and any load balancer should point at that one.
 | `npm run db:deploy` | Apply committed migrations (CI, production). |
 | `npm run db:studio` | Prisma's table browser. |
 | `npm run typecheck` / `npm run lint` | Type-check everything, tests included; ESLint. |
+| `npm run openapi` | Rewrite the committed `openapi.json` from `src/openapi/`. |
 
 Requires Node 24 (see `.nvmrc`). `/docs` serves Swagger UI outside production.
+
+Each route is described once, as data, in `src/openapi/paths/`, using the same
+zod schemas `validate()` runs. The suite fails when a mounted route has no
+description, when a description names a different schema object from the one
+the route validates with, when a response body in any route test does not
+parse against its described schema, and when `openapi.json` is stale.
 
 ## Things that will bite you
 

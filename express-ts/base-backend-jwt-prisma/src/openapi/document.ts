@@ -13,9 +13,11 @@ const csrfHeader = z.object({
 });
 
 /** Express writes `/users/:id`; OpenAPI writes `/users/{id}`. */
-export const toOpenApiPath = (path: string): string => path.replace(/:(\w+)/g, "{$1}");
+const toOpenApiPath = (path: string): string => path.replace(/:(\w+)/g, "{$1}");
 
-const json = (schema: z.ZodType) => ({ content: { "application/json": { schema } } });
+type JsonContent = { content: { "application/json": { schema: z.ZodType } } };
+
+const json = (schema: z.ZodType): JsonContent => ({ content: { "application/json": { schema } } });
 
 const toRouteConfig = (route: ApiRoute): RouteConfig => {
 	const responses: RouteConfig["responses"] = {};
