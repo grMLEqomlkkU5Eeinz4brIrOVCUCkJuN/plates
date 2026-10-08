@@ -4,6 +4,7 @@ import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
 import {
 	createUserSchema,
+	listUsersQuerySchema,
 	updateUserSchema,
 	userIdParamsSchema,
 } from "../../../models/user.model";
@@ -17,7 +18,12 @@ import {
 
 const router = Router();
 
-router.get("/", authenticate, getUsers);
+router.get(
+	"/",
+	authenticate,
+	validate({ query: listUsersQuerySchema }),
+	getUsers
+);
 
 router.post(
 	"/",

@@ -23,9 +23,15 @@ export const userIdParamsSchema = z.object({
 	id: z.uuid("Invalid user ID format"),
 });
 
+export const listUsersQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(100).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
+});
+
 export type UserData = z.infer<typeof userSchema>;
 export type CreateUserData = z.infer<typeof createUserSchema>;
 export type UpdateUserData = z.infer<typeof updateUserSchema>;
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
 export const createUser = (data: CreateUserData): UserData => {
 	const now = new Date();

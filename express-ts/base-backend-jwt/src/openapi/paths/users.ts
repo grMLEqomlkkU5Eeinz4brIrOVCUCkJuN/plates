@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
 	createUserSchema,
+	listUsersQuerySchema,
 	updateUserSchema,
 	userIdParamsSchema,
 	userSchema,
@@ -14,11 +15,15 @@ describeRoutes([
 		method: "get",
 		path: "/users",
 		operationId: "getUsers",
-		summary: "Get all users",
+		summary: "Get a page of users",
+		description:
+			"Oldest first. A page shorter than limit is the last one.",
 		tags: ["Users"],
 		access: "session",
+		request: { query: listUsersQuerySchema },
 		responses: {
 			200: { description: "List of users", schema: z.array(user) },
+			400: "limit is not 1 to 100, or offset is negative",
 			401: "Unauthorized",
 		},
 	},

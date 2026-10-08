@@ -89,6 +89,56 @@ describe("User Routes", () => {
 		});
 	});
 
+	describe("GET /api/v1/users pagination", () => {
+		const page = (query: string): request.Test =>
+			request(app).get(`/api/v1/users${query}`).set(authed());
+
+		beforeAll(async () => {
+			const existing = await page("?limit=100");
+			for (let n = existing.body.length; n < 25; n++) {
+				await request(app)
+					.post("/api/v1/users")
+					.set(csrf())
+					.send({ email: `page${n}@example.com`, name: `Page ${n}` });
+			}
+		});
+
+		it("defaults to 20 users", async () => {
+			const response = await page("");
+
+			expect(response.status).toBe(200);
+			expect(response.body).toHaveLength(20);
+		});
+
+		it("returns the rest after an offset", async () => {
+			const all = await page("?limit=100");
+			const response = await page("?offset=20&limit=100");
+
+			expect(response.body).toEqual(all.body.slice(20));
+		});
+
+		it("returns nothing past the end", async () => {
+			const response = await page("?offset=1000");
+
+			expect(response.status).toBe(200);
+			expect(response.body).toEqual([]);
+		});
+
+		it.each(["?limit=0", "?limit=101", "?limit=abc", "?offset=-1", "?limit=1.5"])(
+			"rejects %s",
+			async (query) => {
+				const response = await page(query);
+
+				expect(response.status).toBe(400);
+			}
+		);
+
+		it("accepts the bounds 1 and 100", async () => {
+			expect((await page("?limit=1")).body).toHaveLength(1);
+			expect((await page("?limit=100")).status).toBe(200);
+		});
+	});
+
 	describe("GET /api/v1/users/:id", () => {
 		it("should return 400 for invalid uuid", async () => {
 			const response = await request(app)

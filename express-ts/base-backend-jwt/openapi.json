@@ -533,13 +533,38 @@
 		"/users": {
 			"get": {
 				"operationId": "getUsers",
-				"summary": "Get all users",
+				"summary": "Get a page of users",
+				"description": "Oldest first. A page shorter than limit is the last one.",
 				"tags": [
 					"Users"
 				],
 				"security": [
 					{
 						"sessionCookie": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "integer",
+							"nullable": true,
+							"minimum": 0,
+							"default": 0
+						},
+						"required": false,
+						"name": "offset",
+						"in": "query"
 					}
 				],
 				"responses": {
@@ -552,6 +577,16 @@
 									"items": {
 										"$ref": "#/components/schemas/User"
 									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "limit is not 1 to 100, or offset is negative",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
 								}
 							}
 						}
