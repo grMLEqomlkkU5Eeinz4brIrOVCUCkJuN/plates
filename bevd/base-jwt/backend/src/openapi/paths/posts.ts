@@ -1,4 +1,4 @@
-import { CreatePostInput, ListPostsInput, PostIdInput } from "../../services/post.service";
+import { CreatePostInput, ListPostsInput, PostIdInput } from "../../models/post";
 import { describeRoutes } from "../registry";
 import { PostListSchema, PostSchema } from "../schemas";
 

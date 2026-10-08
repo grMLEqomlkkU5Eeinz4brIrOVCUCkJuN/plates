@@ -1,13 +1,7 @@
 import { Elysia } from "elysia";
 import type { AppDeps } from "../app";
-import {
-	CreatePostInput,
-	createPost,
-	getPost,
-	ListPostsInput,
-	listPosts,
-	PostIdInput,
-} from "../services/post.service";
+import { CreatePostInput, ListPostsInput, PostIdInput } from "../models/post";
+import { createPost, getPost, listPosts } from "../services/post.service";
 import { restContext, signedIn } from "./context";
 import { restErrors } from "./errors";
 

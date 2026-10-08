@@ -2,7 +2,8 @@ import { Elysia } from "elysia";
 import type { AppDeps } from "../app";
 import type { PublicUser } from "../db/schema";
 import { REFRESH_COOKIE, readCookies, sessionCookies } from "../http/cookies";
-import { LoginInput, login, me, refresh, type Session } from "../services/auth.service";
+import { LoginInput } from "../models/auth";
+import { login, me, refresh, type Session } from "../services/auth.service";
 import { restContext, signedIn } from "./context";
 import { restErrors } from "./errors";
 

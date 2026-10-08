@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { type } from "arktype";
 import { Elysia } from "elysia";
@@ -121,6 +122,26 @@ describe("OpenAPI description", () => {
 		const onDisk = readFileSync(OPENAPI_PATH, "utf8").replace(/\r\n/g, "\n");
 
 		expect(onDisk).toBe(renderOpenApiDocument());
+	});
+
+	it("renders with an empty environment, so no .env is needed to generate it", () => {
+		// A fresh process, because this one already has vitest's env loaded. If anything on
+		// the generator's import path reaches config/env, it throws here.
+		const run = spawnSync(
+			"bun",
+			[
+				"-e",
+				'import { renderOpenApiDocument } from "./src/scripts/openapi"; process.stdout.write(renderOpenApiDocument());',
+			],
+			{
+				cwd: new URL("../../..", import.meta.url).pathname,
+				env: { PATH: process.env.PATH },
+				encoding: "utf8",
+			},
+		);
+
+		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe(readFileSync(OPENAPI_PATH, "utf8").replace(/\r\n/g, "\n"));
 	});
 
 	it("serves that same document at /docs.json, and a UI at /docs", async () => {

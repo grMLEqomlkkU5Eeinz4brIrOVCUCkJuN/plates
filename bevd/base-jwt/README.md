@@ -112,8 +112,9 @@ the body, as `protectedProcedure` does.
 
 The document is OpenAPI 3.1, built from `src/openapi/` rather than inferred, and served
 outside production at http://localhost:3000/docs (the JSON at `/docs.json`). `bun run
-openapi` writes the committed `backend/openapi.json`; it needs the `.env`, because the
-services it imports validate the environment on load. The tests hold the document to the
+openapi` writes the committed `backend/openapi.json`, and needs no `.env`: the input schemas
+live in `src/models/`, apart from the services, so nothing it imports reads the
+environment. The tests hold the document to the
 code: every route described and nothing else, the very schema objects the routes and the
 procedures validate with, the access levels against what the server actually refuses,
 every REST response in the test suite against its schema, and the committed file against
@@ -143,7 +144,7 @@ client.CreatePost({ title: "Hi", body: "there" }, metadata, callback);
 ## Tests
 
 ```sh
-bun run test    # 73 backend, 10 frontend
+bun run test    # 74 backend, 10 frontend
 ```
 
 The backend tests are where the authorization rules are actually pinned down - ownership,

@@ -1,4 +1,4 @@
-import { LoginInput } from "../../services/auth.service";
+import { LoginInput } from "../../models/auth";
 import { describeRoutes } from "../registry";
 import { UserSchema } from "../schemas";
 
