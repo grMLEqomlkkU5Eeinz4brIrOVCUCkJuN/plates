@@ -243,6 +243,34 @@
 				],
 				"additionalProperties": false
 			},
+			"UserPage": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/User"
+						}
+					},
+					"total": {
+						"type": "integer",
+						"description": "Users in the store, across all pages."
+					},
+					"limit": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"items",
+					"total",
+					"limit",
+					"offset"
+				],
+				"additionalProperties": false
+			},
 			"User": {
 				"type": "object",
 				"properties": {
@@ -534,7 +562,7 @@
 			"get": {
 				"operationId": "getUsers",
 				"summary": "Get a page of users",
-				"description": "Oldest first. A page shorter than limit is the last one.",
+				"description": "Oldest first. The last page is the one where offset + items.length reaches total.",
 				"tags": [
 					"Users"
 				],
@@ -569,14 +597,11 @@
 				],
 				"responses": {
 					"200": {
-						"description": "List of users",
+						"description": "A page of users",
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "array",
-									"items": {
-										"$ref": "#/components/schemas/User"
-									}
+									"$ref": "#/components/schemas/UserPage"
 								}
 							}
 						}

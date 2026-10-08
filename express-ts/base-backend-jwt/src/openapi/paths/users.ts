@@ -10,6 +10,16 @@ import { describeRoutes, named } from "../registry";
 
 const user = named("User", userSchema);
 
+const userPage = named(
+	"UserPage",
+	z.strictObject({
+		items: z.array(user),
+		total: z.number().int().openapi({ description: "Users in the store, across all pages." }),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
+
 describeRoutes([
 	{
 		method: "get",
@@ -17,12 +27,12 @@ describeRoutes([
 		operationId: "getUsers",
 		summary: "Get a page of users",
 		description:
-			"Oldest first. A page shorter than limit is the last one.",
+			"Oldest first. The last page is the one where offset + items.length reaches total.",
 		tags: ["Users"],
 		access: "session",
 		request: { query: listUsersQuerySchema },
 		responses: {
-			200: { description: "List of users", schema: z.array(user) },
+			200: { description: "A page of users", schema: userPage },
 			400: "limit is not 1 to 100, or offset is negative",
 			401: "Unauthorized",
 		},

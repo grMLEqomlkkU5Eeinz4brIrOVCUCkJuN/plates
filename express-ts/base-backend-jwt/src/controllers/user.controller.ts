@@ -23,7 +23,12 @@ export const createUserHandler = (req: Request, res: Response): void => {
 export const getUsers = (req: Request, res: Response): void => {
 	// validate() has replaced req.query with listUsersQuerySchema's output.
 	const { limit, offset } = req.query as unknown as ListUsersQuery;
-	res.json(users.values().drop(offset).take(limit).toArray());
+	res.json({
+		items: users.values().drop(offset).take(limit).toArray(),
+		total: users.size,
+		limit,
+		offset,
+	});
 };
 
 export const getUserById = (

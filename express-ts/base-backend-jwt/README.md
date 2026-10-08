@@ -121,10 +121,16 @@ export const productIdParamsSchema = z.object({
 	id: z.uuid("Invalid product ID"),
 });
 
+export const listProductsQuerySchema = z.object({
+	limit: z.coerce.number().int().min(1).max(100).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
+});
+
 // Derive types from schemas
 export type ProductData = z.infer<typeof productSchema>;
 export type CreateProductData = z.infer<typeof createProductSchema>;
 export type UpdateProductData = z.infer<typeof updateProductSchema>;
+export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 
 // Factory function
 export const createProduct = (data: CreateProductData): ProductData => {
@@ -160,6 +166,7 @@ import {
 	CreateProductData,
 	UpdateProductData,
 	ProductData,
+	ListProductsQuery,
 } from "../models/product.model";
 import { createError } from "../middleware/errorHandler";
 
@@ -172,8 +179,15 @@ export const createProductHandler = (req: Request, res: Response) => {
 	res.status(201).json(product);
 };
 
-export const getProducts = (_req: Request, res: Response) => {
-	res.json([...products.values()]);
+export const getProducts = (req: Request, res: Response) => {
+	// validate() has replaced req.query with listProductsQuerySchema's output.
+	const { limit, offset } = req.query as unknown as ListProductsQuery;
+	res.json({
+		items: products.values().drop(offset).take(limit).toArray(),
+		total: products.size,
+		limit,
+		offset,
+	});
 };
 
 export const getProductById = (req: Request<{ id: string }>, res: Response) => {
@@ -214,6 +228,7 @@ import {
 	createProductSchema,
 	updateProductSchema,
 	productIdParamsSchema,
+	listProductsQuerySchema,
 } from "../../../models/product.model";
 import {
 	createProductHandler,
@@ -225,7 +240,12 @@ import {
 
 const router = Router();
 
-router.get("/", authenticate, getProducts);
+router.get(
+	"/",
+	authenticate,
+	validate({ query: listProductsQuerySchema }),
+	getProducts
+);
 
 router.post(
 	"/",
@@ -293,22 +313,34 @@ import {
 	createProductSchema,
 	updateProductSchema,
 	productIdParamsSchema,
+	listProductsQuerySchema,
 	productSchema,
 } from "../../models/product.model";
 import { describeRoutes, named } from "../registry";
 
 const product = named("Product", productSchema);
 
+const productPage = named(
+	"ProductPage",
+	z.strictObject({
+		items: z.array(product),
+		total: z.number().int(),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
+
 describeRoutes([
 	{
 		method: "get",
 		path: "/products",
 		operationId: "getProducts",
-		summary: "Get all products",
+		summary: "Get a page of products",
 		tags: ["Products"],
 		access: "session",
+		request: { query: listProductsQuerySchema },
 		responses: {
-			200: { description: "List of products", schema: z.array(product) },
+			200: { description: "A page of products", schema: productPage },
 			401: "Unauthorized",
 		},
 	},
@@ -409,10 +441,11 @@ describe("Product Routes", () => {
 	});
 
 	describe("GET /api/v1/products", () => {
-		it("should return array", async () => {
+		it("should return a page", async () => {
 			const response = await request(app).get("/api/v1/products");
 			expect(response.status).toBe(200);
-			expect(Array.isArray(response.body)).toBe(true);
+			expect(response.body).toMatchObject({ limit: 20, offset: 0 });
+			expect(Array.isArray(response.body.items)).toBe(true);
 		});
 	});
 });
