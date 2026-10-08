@@ -41,6 +41,33 @@
 				],
 				"additionalProperties": false
 			},
+			"UserPage": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/User"
+						}
+					},
+					"total": {
+						"type": "integer"
+					},
+					"limit": {
+						"type": "integer"
+					},
+					"offset": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"items",
+					"total",
+					"limit",
+					"offset"
+				],
+				"additionalProperties": false
+			},
 			"User": {
 				"type": "object",
 				"properties": {
@@ -157,20 +184,51 @@
 		"/users": {
 			"get": {
 				"operationId": "getUsers",
-				"summary": "Get all users",
+				"summary": "List users, oldest first, one page at a time",
 				"tags": [
 					"Users"
 				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "integer",
+							"nullable": true,
+							"minimum": 0,
+							"default": 0
+						},
+						"required": false,
+						"name": "offset",
+						"in": "query"
+					}
+				],
 				"responses": {
 					"200": {
-						"description": "List of users",
+						"description": "One page of users and the total count",
 						"content": {
 							"application/json": {
 								"schema": {
-									"type": "array",
-									"items": {
-										"$ref": "#/components/schemas/User"
-									}
+									"$ref": "#/components/schemas/UserPage"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "limit is not 1 to 100, or offset is negative",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
 								}
 							}
 						}

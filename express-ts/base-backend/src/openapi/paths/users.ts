@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
 	createUserSchema,
+	listUsersQuerySchema,
 	updateUserSchema,
 	userIdParamsSchema,
 	userSchema,
@@ -8,17 +9,28 @@ import {
 import { describeRoutes, named } from "../registry";
 
 const user = named("User", userSchema);
+const userPage = named(
+	"UserPage",
+	z.strictObject({
+		items: z.array(user),
+		total: z.number().int(),
+		limit: z.number().int(),
+		offset: z.number().int(),
+	})
+);
 
 describeRoutes([
 	{
 		method: "get",
 		path: "/users",
 		operationId: "getUsers",
-		summary: "Get all users",
+		summary: "List users, oldest first, one page at a time",
 		tags: ["Users"],
 		access: "open",
+		request: { query: listUsersQuerySchema },
 		responses: {
-			200: { description: "List of users", schema: z.array(user) },
+			200: { description: "One page of users and the total count", schema: userPage },
+			400: "limit is not 1 to 100, or offset is negative",
 		},
 	},
 	{

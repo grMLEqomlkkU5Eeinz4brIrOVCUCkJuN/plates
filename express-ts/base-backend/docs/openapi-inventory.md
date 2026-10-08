@@ -32,3 +32,12 @@ Components declared by hand in `user.routes.ts`: `User`, `CreateUser`,
   controller always sends the literal `"ok"`.
 - The spec's `info.title` comes from `SERVICE_NAME`, so the rendered document
   changes with the environment.
+
+## Changes made after the conversion
+
+- `GET /users` is paginated: `limit` (1 to 100, default 20) and `offset`
+  (0 or more, default 0) in the query; anything else is a 400. The response
+  changed from a bare `User[]` to `{ items, total, limit, offset }`.
+- `validate` used to write parsed query values into `req.query`, which on
+  Express 5 is a getter that re-parses the URL, so coerced values and
+  defaults never reached the handler. It now shadows `req.query`.

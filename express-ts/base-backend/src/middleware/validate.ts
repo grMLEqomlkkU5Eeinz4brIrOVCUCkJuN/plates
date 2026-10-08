@@ -42,7 +42,13 @@ export const validate = (
 				);
 			}
 			if (location === "query") {
-				Object.assign(req.query, result.data);
+				// Express 5's req.query is a getter that parses the URL afresh
+				// on every read, so writing into it is lost; shadow it instead
+				// so handlers see the coerced values and defaults.
+				Object.defineProperty(req, "query", {
+					value: result.data,
+					writable: true,
+				});
 			} else {
 				req[location] = result.data;
 			}

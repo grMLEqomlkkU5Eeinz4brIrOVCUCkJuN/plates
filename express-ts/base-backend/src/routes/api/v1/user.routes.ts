@@ -2,6 +2,7 @@ import { Router } from "express";
 import { validate } from "../../../middleware/validate";
 import {
 	createUserSchema,
+	listUsersQuerySchema,
 	updateUserSchema,
 	userIdParamsSchema,
 } from "../../../models/user.model";
@@ -16,7 +17,11 @@ import {
 
 const router = Router();
 
-router.get("/", asyncHandler(getUsers));
+router.get(
+	"/",
+	validate({ query: listUsersQuerySchema }),
+	asyncHandler(getUsers)
+);
 
 router.post(
 	"/",
