@@ -537,9 +537,21 @@
 			"post": {
 				"operationId": "refresh",
 				"summary": "Rotate the refresh cookie for a new pair.",
-				"description": "Refresh tokens are single use. Presenting one twice revokes the whole family and answers REFRESH_REUSED; either way the cookies are cleared on failure.",
+				"description": "Refresh tokens are single use. Presenting one twice revokes the whole family and answers REFRESH_REUSED; either way the cookies are cleared on failure. Needs x-csrf-token: the one in hand while the access cookie lives, or a fresh one from GET /auth/csrf-token once it has expired.",
 				"tags": [
 					"Auth"
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token."
+						},
+						"required": true,
+						"description": "The csrfToken from login, register, refresh or GET /auth/csrf-token.",
+						"name": "x-csrf-token",
+						"in": "header"
+					}
 				],
 				"responses": {
 					"200": {
@@ -554,6 +566,16 @@
 					},
 					"401": {
 						"description": "REFRESH_INVALID or REFRESH_REUSED.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "CSRF_INVALID.",
 						"content": {
 							"application/json": {
 								"schema": {

@@ -101,6 +101,9 @@ whose path never reaches it.
 Every mutation needs the CSRF token back in `x-csrf-token`. The token is
 HMAC'd against the access cookie (`middleware/csrf.ts`), so it is bound to one
 session; `GET /auth/csrf-token` issues a fresh one after a page reload.
+`POST /auth/refresh` needs it too, since the refresh cookie rides along on a
+cross-site POST: once the access cookie has expired, fetch a token from
+`GET /auth/csrf-token` first (it is then bound to the caller's address).
 
 A login against an unknown address costs the same as one against a known
 address (`equalisePasswordTiming`), and answers the same message, so neither

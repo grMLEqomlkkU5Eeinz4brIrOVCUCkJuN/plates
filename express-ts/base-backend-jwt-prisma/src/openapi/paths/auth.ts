@@ -65,12 +65,14 @@ describeRoutes([
 		operationId: "refresh",
 		summary: "Rotate the refresh cookie for a new pair.",
 		description:
-			"Refresh tokens are single use. Presenting one twice revokes the whole family and answers REFRESH_REUSED; either way the cookies are cleared on failure.",
+			"Refresh tokens are single use. Presenting one twice revokes the whole family and answers REFRESH_REUSED; either way the cookies are cleared on failure. Needs x-csrf-token: the one in hand while the access cookie lives, or a fresh one from GET /auth/csrf-token once it has expired.",
 		tags: ["Auth"],
 		access: "public",
+		csrf: true,
 		responses: {
 			200: { description: "New cookies set; csrfToken in the body.", schema: csrfTokenEnvelope },
 			401: "REFRESH_INVALID or REFRESH_REUSED.",
+			403: "CSRF_INVALID.",
 			429: "RATE_LIMITED.",
 		},
 	},

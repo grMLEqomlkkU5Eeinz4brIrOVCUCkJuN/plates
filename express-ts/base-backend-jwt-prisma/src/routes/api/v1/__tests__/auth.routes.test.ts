@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { createTestApp } from "../../../../test/app";
 import { resetDatabase } from "../../../../test/db";
-import { PASSWORD, asUser, cookiePairs, cookieValue, signUp, withCsrf } from "../../../../test/auth";
+import { PASSWORD, asUser, cookiePairs, cookieValue, refreshAnonymously, signUp, withCsrf } from "../../../../test/auth";
 
 /**
  * Runs against the real database, migrated by `prisma migrate deploy`: what
@@ -127,10 +127,8 @@ describe("auth routes", () => {
 	});
 
 	describe("POST /api/v1/auth/refresh", () => {
-		const refreshWith = (refreshToken: string): request.Test =>
-			request(app)
-				.post("/api/v1/auth/refresh")
-				.set("Cookie", `refresh_token=${refreshToken}`);
+		const refreshWith = (refreshToken: string): Promise<request.Response> =>
+			refreshAnonymously(app, refreshToken);
 
 		it("rotates the pair, and the spent token revokes the family on reuse", async () => {
 			const session = await signUp(app, "refresh@example.com");
@@ -167,10 +165,31 @@ describe("auth routes", () => {
 		});
 
 		it("answers 401 without a refresh cookie", async () => {
-			const response = await request(app).post("/api/v1/auth/refresh");
+			const issued = await request(app).get("/api/v1/auth/csrf-token");
+			const response = await request(app)
+				.post("/api/v1/auth/refresh")
+				.set("Cookie", cookiePairs(issued.get("Set-Cookie") ?? []).join("; "))
+				.set("x-csrf-token", issued.body.csrfToken as string);
 
 			expect(response.status).toBe(401);
 			expect(response.body.code).toBe("REFRESH_INVALID");
+		});
+
+		it("accepts the CSRF token from login while the access cookie lives", async () => {
+			const session = await signUp(app, "early-refresh@example.com");
+
+			const response = await request(app).post("/api/v1/auth/refresh").set(withCsrf(session));
+
+			expect(response.status).toBe(200);
+		});
+
+		it("refuses a cross-site refresh: the cookie without the CSRF header", async () => {
+			const session = await signUp(app, "forged-refresh@example.com");
+
+			const response = await request(app).post("/api/v1/auth/refresh").set(asUser(session));
+
+			expect(response.status).toBe(403);
+			expect(response.body.code).toBe("CSRF_INVALID");
 		});
 	});
 
@@ -181,9 +200,7 @@ describe("auth routes", () => {
 			const response = await request(app).post("/api/v1/auth/logout").set(withCsrf(session));
 			expect(response.status).toBe(204);
 
-			const afterLogout = await request(app)
-				.post("/api/v1/auth/refresh")
-				.set("Cookie", `refresh_token=${session.refreshToken}`);
+			const afterLogout = await refreshAnonymously(app, session.refreshToken);
 			expect(afterLogout.status).toBe(401);
 			expect(afterLogout.body.code).toBe("REFRESH_INVALID");
 		});

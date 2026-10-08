@@ -56,3 +56,20 @@ export const withCsrf = (session: TestSession): Record<string, string> => ({
 	...asUser(session),
 	"x-csrf-token": session.csrfToken,
 });
+
+/**
+ * A refresh after the access cookie has expired and the browser has dropped
+ * it: an anonymous CSRF token first (bound to req.ip), then the refresh cookie.
+ */
+export const refreshAnonymously = async (
+	app: Express,
+	refreshToken: string
+): Promise<request.Response> => {
+	const issued = await request(app).get("/api/v1/auth/csrf-token");
+	const csrfCookie = cookiePairs(issued.get("Set-Cookie") ?? []).join("; ");
+
+	return request(app)
+		.post("/api/v1/auth/refresh")
+		.set("Cookie", `refresh_token=${refreshToken}; ${csrfCookie}`)
+		.set("x-csrf-token", issued.body.csrfToken as string);
+};
