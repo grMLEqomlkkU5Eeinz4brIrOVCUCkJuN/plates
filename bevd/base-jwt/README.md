@@ -83,6 +83,42 @@ Two details worth stealing:
 The admin API also refuses to let the last admin demote or delete themselves - otherwise
 the system locks itself out with no way back in through the app.
 
+## REST and the OpenAPI document
+
+Six REST routes under `/api/v1` mirror the core tRPC procedures, for clients without a
+tRPC client. Each calls the same service function with the same arktype input schema, and
+answers with the same body the procedure returns:
+
+| Route | Mirrors | Who |
+| --- | --- | --- |
+| `POST /api/v1/auth/login` | `auth.login` | anyone; sets both cookies |
+| `POST /api/v1/auth/refresh` | `auth.refresh` | the `refresh_token` cookie |
+| `GET /api/v1/auth/me` | `auth.me` | signed in |
+| `GET /api/v1/posts?limit=&publishedOnly=` | `post.list` | anyone; a session adds your drafts |
+| `GET /api/v1/posts/:id` | `post.byId` | anyone; someone else's draft is 404 |
+| `POST /api/v1/posts` | `post.create` | signed in; answers 201 |
+
+That is enough to hold a session and read and write posts, and it covers each kind of
+caller (anonymous, refresh cookie, signed in). Everything else is RPC-only and the document
+says so: `auth.register`, `auth.logout`, `post.update`, `post.delete`, the admin `user.*`
+procedures, and `health.ping` and `health.db`. Note what that means for a REST-only client:
+it cannot revoke its refresh token, which only `auth.logout` does. Twin a procedure when a
+client needs it: a route in `src/rest/`, an entry in `src/openapi/paths/`, its name out of
+`RPC_ONLY_PROCEDURES`, then `bun run openapi`.
+
+Errors are `{ "error": { "code", "message", "requestId" } }`, with the status tRPC sends for
+the same code. A route that needs a session rejects an anonymous caller before it looks at
+the body, as `protectedProcedure` does.
+
+The document is OpenAPI 3.1, built from `src/openapi/` rather than inferred, and served
+outside production at http://localhost:3000/docs (the JSON at `/docs.json`). `bun run
+openapi` writes the committed `backend/openapi.json`; it needs the `.env`, because the
+services it imports validate the environment on load. The tests hold the document to the
+code: every route described and nothing else, the very schema objects the routes and the
+procedures validate with, the access levels against what the server actually refuses,
+every REST response in the test suite against its schema, and the committed file against
+the generator.
+
 ## gRPC with auth
 
 Same services, different envelope. No cookies - log in, get the tokens in the response
@@ -107,7 +143,7 @@ client.CreatePost({ title: "Hi", body: "there" }, metadata, callback);
 ## Tests
 
 ```sh
-bun run test    # 44 backend, 10 frontend
+bun run test    # 73 backend, 10 frontend
 ```
 
 The backend tests are where the authorization rules are actually pinned down - ownership,
