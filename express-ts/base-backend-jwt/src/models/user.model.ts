@@ -8,12 +8,20 @@ export const userSchema = z.object({
 	updatedAt: z.date(),
 });
 
-export const createUserSchema = userSchema.omit({
-	id: true,
-	createdAt: true,
-	updatedAt: true,
+export const createUserSchema = userSchema
+	.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+	})
+	.meta({ id: "CreateUser" });
+export const updateUserSchema = createUserSchema
+	.partial()
+	.meta({ id: "UpdateUser" });
+
+export const userIdParamsSchema = z.object({
+	id: z.uuid("Invalid user ID format"),
 });
-export const updateUserSchema = createUserSchema.partial();
 
 export type UserData = z.infer<typeof userSchema>;
 export type CreateUserData = z.infer<typeof createUserSchema>;

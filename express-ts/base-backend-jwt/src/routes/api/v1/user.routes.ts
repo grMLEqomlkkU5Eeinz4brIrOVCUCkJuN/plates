@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { z } from "zod";
 import { validate } from "../../../middleware/validate";
 import { authenticate } from "../../../middleware/auth";
 import { doubleCsrfProtection } from "../../../middleware/csrf";
-import { createUserSchema, updateUserSchema } from "../../../models/user.model";
+import {
+	createUserSchema,
+	updateUserSchema,
+	userIdParamsSchema,
+} from "../../../models/user.model";
 import {
 	createUserHandler,
 	getUsers,
@@ -13,12 +16,6 @@ import {
 } from "../../../controllers/user.controller";
 
 const router = Router();
-
-const idParamSchema = {
-	params: z.object({
-		id: z.string().uuid("Invalid user ID format"),
-	}),
-};
 
 /**
  * @swagger
@@ -171,7 +168,12 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/:id", authenticate, validate(idParamSchema), getUserById);
+router.get(
+	"/:id",
+	authenticate,
+	validate({ params: userIdParamsSchema }),
+	getUserById
+);
 
 /**
  * @swagger
@@ -217,7 +219,7 @@ router.patch(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate({ ...idParamSchema, body: updateUserSchema }),
+	validate({ params: userIdParamsSchema, body: updateUserSchema }),
 	updateUserHandler
 );
 
@@ -255,7 +257,7 @@ router.delete(
 	"/:id",
 	authenticate,
 	doubleCsrfProtection,
-	validate(idParamSchema),
+	validate({ params: userIdParamsSchema }),
 	deleteUser
 );
 
