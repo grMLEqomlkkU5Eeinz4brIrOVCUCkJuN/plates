@@ -18,6 +18,15 @@ const userFields = userSchema.omit({
 export const createUserSchema = userFields.meta({ id: "CreateUser" });
 export const updateUserSchema = userFields.partial().meta({ id: "UpdateUser" });
 
+export const MAX_PAGE_SIZE = 100;
+
+export const listUsersQuerySchema = z.strictObject({
+	limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(20),
+	offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+
 export const userIdParamsSchema = z.object({
 	id: z.string().uuid("Invalid user ID format"),
 });

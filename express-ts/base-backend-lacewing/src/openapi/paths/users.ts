@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
 	createUserSchema,
 	updateUserSchema,
+	listUsersQuerySchema,
 	userIdParamsSchema,
 	userSchema,
 } from "../../models/user.model";
@@ -15,11 +16,14 @@ describeRoutes([
 		path: "/users",
 		operationId: "getUsers",
 		summary: "Get all users",
-		description: "Every user, unpaginated.",
+		description:
+			"One page of users in creation order. limit defaults to 20 and is capped at 100; offset defaults to 0.",
 		tags: ["Users"],
 		access: "bearer",
+		request: { query: listUsersQuerySchema },
 		responses: {
 			200: { description: "List of users", schema: z.array(user) },
+			400: "limit outside 1 to 100, a negative offset, or an unknown parameter",
 			401: "Unauthorized",
 		},
 	},

@@ -6,6 +6,7 @@ import {
 	createUserSchema,
 	updateUserSchema,
 	userIdParamsSchema,
+	listUsersQuerySchema,
 } from "../../../models/user.model";
 import {
 	createUserHandler,
@@ -17,7 +18,12 @@ import {
 
 const router = Router();
 
-router.get("/", authenticate, getUsers);
+router.get(
+	"/",
+	authenticate,
+	validate({ query: listUsersQuerySchema }),
+	getUsers
+);
 
 router.post(
 	"/",

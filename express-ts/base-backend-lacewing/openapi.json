@@ -534,7 +534,7 @@
 			"get": {
 				"operationId": "getUsers",
 				"summary": "Get all users",
-				"description": "Every user, unpaginated.",
+				"description": "One page of users in creation order. limit defaults to 20 and is capped at 100; offset defaults to 0.",
 				"tags": [
 					"Users"
 				],
@@ -544,6 +544,30 @@
 					},
 					{
 						"bearerAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "integer",
+							"nullable": true,
+							"minimum": 0,
+							"default": 0
+						},
+						"required": false,
+						"name": "offset",
+						"in": "query"
 					}
 				],
 				"responses": {
@@ -556,6 +580,16 @@
 									"items": {
 										"$ref": "#/components/schemas/User"
 									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "limit outside 1 to 100, a negative offset, or an unknown parameter",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
 								}
 							}
 						}
