@@ -1,5 +1,5 @@
 {
-	"openapi": "3.1.0",
+	"openapi": "3.1.2",
 	"info": {
 		"title": "bevd-lacewing API",
 		"version": "1",
@@ -646,7 +646,7 @@
 									"type": "string",
 									"description": "a UUID",
 									"format": "uuid",
-									"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+									"pattern": "^[\\dA-Fa-f]{8}-[\\dA-Fa-f]{4}-[1-8][\\dA-Fa-f]{3}-[89ABab][\\dA-Fa-f]{3}-[\\dA-Fa-f]{12}$"
 								},
 								{
 									"const": "00000000-0000-0000-0000-000000000000",
@@ -728,7 +728,7 @@
 								"type": "string",
 								"description": "a UUID",
 								"format": "uuid",
-								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								"pattern": "^[\\dA-Fa-f]{8}-[\\dA-Fa-f]{4}-[1-8][\\dA-Fa-f]{3}-[89ABab][\\dA-Fa-f]{3}-[\\dA-Fa-f]{12}$"
 							},
 							{
 								"const": "00000000-0000-0000-0000-000000000000",
@@ -777,7 +777,7 @@
 								"type": "string",
 								"description": "a UUID",
 								"format": "uuid",
-								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								"pattern": "^[\\dA-Fa-f]{8}-[\\dA-Fa-f]{4}-[1-8][\\dA-Fa-f]{3}-[89ABab][\\dA-Fa-f]{3}-[\\dA-Fa-f]{12}$"
 							},
 							{
 								"const": "00000000-0000-0000-0000-000000000000",
@@ -807,7 +807,7 @@
 								"type": "string",
 								"description": "a UUID",
 								"format": "uuid",
-								"pattern": "^[\\da-f]{8}-[\\da-f]{4}-[1-8][\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"
+								"pattern": "^[\\dA-Fa-f]{8}-[\\dA-Fa-f]{4}-[1-8][\\dA-Fa-f]{3}-[89ABab][\\dA-Fa-f]{3}-[\\dA-Fa-f]{12}$"
 							},
 							{
 								"const": "00000000-0000-0000-0000-000000000000",
