@@ -10,7 +10,7 @@ named("ErrorBody", ErrorBody);
  * `const` and `{ "type": "null" }` where 3.0 would need `enum` and `nullable`. Rewriting it
  * down to 3.0 would be a second converter to keep correct, for no client that needs it.
  */
-const OPENAPI_VERSION = "3.1.0";
+const OPENAPI_VERSION = "3.1.2";
 
 const DESCRIPTION = [
 	"The REST surface of bevd/base. Every route here calls the same service function, with",

@@ -30,7 +30,7 @@ const DESCRIPTION = [
  * would each need rewriting into 3.0's dialect, and the document would describe the
  * rewrite rather than the schema.
  */
-const OPENAPI_VERSION = "3.1.0";
+const OPENAPI_VERSION = "3.1.2";
 
 /**
  * arktype's JSON Schema, with the two things it cannot say on its own decided once:

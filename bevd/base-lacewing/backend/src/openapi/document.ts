@@ -19,7 +19,7 @@ type SecurityRequirement = Record<string, string[]>;
  * mean rewriting arktype's output by hand, and the document would then describe the
  * rewrite rather than the validator.
  */
-const OPENAPI_VERSION = "3.1.0";
+const OPENAPI_VERSION = "3.1.2";
 
 /**
  * One arktype schema as an OpenAPI schema object.
