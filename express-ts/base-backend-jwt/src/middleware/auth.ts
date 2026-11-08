@@ -11,10 +11,13 @@ export interface JwtPayload {
 	exp?: number;
 }
 
+const ALGORITHM = "HS256";
+
 export const generateAccessToken = (
 	payload: Omit<JwtPayload, "iat" | "exp">
 ): string =>
 	jwt.sign(payload, env.JWT_SECRET, {
+		algorithm: ALGORITHM,
 		expiresIn: env.JWT_ACCESS_EXPIRY as jwt.SignOptions["expiresIn"],
 	});
 
@@ -22,14 +25,19 @@ export const generateRefreshToken = (
 	payload: Omit<JwtPayload, "iat" | "exp">
 ): string =>
 	jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+		algorithm: ALGORITHM,
 		expiresIn: env.JWT_REFRESH_EXPIRY as jwt.SignOptions["expiresIn"],
 	});
 
+// `algorithms` is pinned so the header cannot choose how a token is checked:
+// without it jsonwebtoken accepts any HMAC variant signed with the secret.
 export const verifyAccessToken = (token: string): JwtPayload =>
-	jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+	jwt.verify(token, env.JWT_SECRET, { algorithms: [ALGORITHM] }) as JwtPayload;
 
 export const verifyRefreshToken = (token: string): JwtPayload =>
-	jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
+	jwt.verify(token, env.JWT_REFRESH_SECRET, {
+		algorithms: [ALGORITHM],
+	}) as JwtPayload;
 
 // Derived from the token lifetimes rather than restated, so a cookie cannot be
 // discarded while the token it carries is still valid - which is what a
