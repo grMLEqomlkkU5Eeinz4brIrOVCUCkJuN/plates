@@ -26,7 +26,7 @@
         "cookie": "^2.0.1",
         "drizzle-orm": "^0.45.4",
         "elysia": "^1.4.30",
-        "lacewing": "^1.2.1",
+        "lacewing": "^3.0.0",
         "pg": "^8.23.1",
         "pino": "^10.4.0",
         "pino-pretty": "^13.2.0",
@@ -533,7 +533,7 @@
 
     "json-schema-traverse": ["json-schema-traverse@1.0.0", "", {}, "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="],
 
-    "lacewing": ["lacewing@1.2.1", "", { "dependencies": { "jose": "^6.2.10" } }, "sha512-GVI82QydJ08En7ve611+Xhndjj4ktIhIK3WfHDh81Bm6dW3QKOqM547hHJpbFWr+R5ulLGkD2eAkvRkxZDsQPQ=="],
+    "lacewing": ["lacewing@3.0.0", "", { "dependencies": { "jose": "^6.2.10" } }, "sha512-WTqi3YeNcppIXKxt3WYUpGDt16Osa8Jr8D44Ma30cUzfO8rhayH1AmHx9D7ipujHP6DCrF9a+94uhZcVzULbPA=="],
 
     "lefthook": ["lefthook@2.2.1", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.2.1", "lefthook-darwin-x64": "2.2.1", "lefthook-freebsd-arm64": "2.2.1", "lefthook-freebsd-x64": "2.2.1", "lefthook-linux-arm64": "2.2.1", "lefthook-linux-x64": "2.2.1", "lefthook-openbsd-arm64": "2.2.1", "lefthook-openbsd-x64": "2.2.1", "lefthook-windows-arm64": "2.2.1", "lefthook-windows-x64": "2.2.1" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-aKEwhQzGbLMkZu5vrFYKJzLvLVblWATYITmN7Ak4qRCDPCoFJhmeJZFuYf3nTXuqG9xTBE+J8xaAEPL2tpuWyw=="],
 
