@@ -1,0 +1,69 @@
+version: 2
+
+updates:
+  # express-ts templates (npm, package-lock.json)
+  - package-ecosystem: npm
+    directories:
+      - /express-ts/base-backend
+      - /express-ts/base-backend-jwt
+      - /express-ts/base-backend-jwt-prisma
+      - /express-ts/base-backend-lacewing
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # bevd templates (bun workspaces, bun.lock at the template root)
+  - package-ecosystem: bun
+    directories:
+      - /bevd/base
+      - /bevd/base-jwt
+      - /bevd/base-lacewing
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      bun-minor-patch:
+        update-types: [minor, patch]
+
+  # Spring Boot template
+  - package-ecosystem: maven
+    directory: /java/springBoot/SHFP/SimpleBackend
+    schedule:
+      interval: weekly
+    groups:
+      maven-minor-patch:
+        update-types: [minor, patch]
+
+  # Base images in Dockerfiles
+  - package-ecosystem: docker
+    directories:
+      - /bevd/base/backend
+      - /bevd/base-jwt/backend
+      - /bevd/base-lacewing/backend
+      - /express-ts/base-backend
+      - /express-ts/base-backend-jwt
+      - /express-ts/base-backend-jwt-prisma
+      - /express-ts/base-backend-lacewing
+      - /java/springBoot/SHFP/SimpleBackend
+    schedule:
+      interval: weekly
+    groups:
+      docker-images:
+        patterns: ["*"]
+
+  # Images in compose files
+  - package-ecosystem: docker-compose
+    directories:
+      - /bevd/base
+      - /bevd/base-jwt
+      - /bevd/base-lacewing
+      - /express-ts/base-backend-jwt-prisma
+      - /java/springBoot/SHFP/SimpleBackend
+    schedule:
+      interval: weekly
+    groups:
+      compose-images:
+        patterns: ["*"]
