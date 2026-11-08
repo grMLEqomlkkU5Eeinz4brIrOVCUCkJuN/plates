@@ -4,52 +4,50 @@ Project templates. Grab one, don't clone the whole repo.
 
 ## Scope
 
-These exist to spin up **microservices** - one service, one job, an HTTP or RPC boundary
-in front of it. That is why they are thin: no queue, no cache, no CMS, no admin panel, no
-opinion about your infrastructure. A template that guesses those wrong costs more time
-than one that leaves them out.
+These are for microservices: one service, one job, an HTTP or RPC boundary in front of
+it. So they are thin: no queue, no cache, no CMS, no admin panel, nothing about your
+infrastructure.
 
 More importantly this is why we are not really using a lot of cooler new hippier frameworks at the moment.
 
 That said, I might be open to adding microservice templates of various languages in this repo.
 
-The full-stack **`bevd/`** templates and their Vue frontend were added later, because
-enough people asked for something they could point a browser at without wiring a second
-repo first. They are still microservice-shaped underneath - services own the logic, the
-transports only translate - and the frontend is a working client, not a starter app.
+The full-stack `bevd/` templates and their Vue frontend came later, because enough people
+asked for something they could point a browser at without wiring up a second repo. They
+are still services underneath, with the logic in the services and the transports only
+translating.
 
-[**docs/frameworks.md**](./docs/frameworks.md) lists what every template runs on, backend
-and frontend, and why each piece is there - read it if you are choosing between them.
+[docs/frameworks.md](./docs/frameworks.md) lists what every template runs on, backend and
+frontend, and why. Read it if you are choosing between them.
 
 ## Templates
 
-### Backend only - Express + TypeScript
+### Backend only: Express + TypeScript
 
-| Template                    | Auth                  | Notes                            |
-| --------------------------- | --------------------- | -------------------------------- |
-| `express-ts/base-backend`    | none                  | Express + TypeScript. No async wrapper: Express 5 forwards rejected handlers to the error handler. |
-| `express-ts/base-backend-new`| none                  | Same, without the `asyncHandler` wrapper. |
-| `express-ts/base-backend-jwt`| JWT (cookies + CSRF) | Adds auth routes. Without `asyncHandler`. |
-| `express-ts/base-backend-lacewing`| JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. Doubles as a lacewing demo. |
-| `express-ts/base-backend-jwt-prisma`| JWT (cookies + CSRF), real accounts | The only `express-ts` template with a database: Postgres through Prisma 7, argon2id passwords, rotated refresh tokens with reuse detection, a service layer that owns every query, tests against a real Postgres. Start here if you need persistence. |
+| Template | Auth | Notes |
+| --- | --- | --- |
+| `express-ts/base-backend` | none | Express 5 + TypeScript. No async wrapper: Express 5 forwards rejected handlers to the error handler. |
+| `express-ts/base-backend-jwt` | JWT (cookies + CSRF) | Adds auth routes. |
+| `express-ts/base-backend-lacewing` | JWT via [lacewing](https://github.com/Smiduweorc/lacewing) (cookies + CSRF) | `base-backend-jwt` rebuilt on lacewing: profiles, access/refresh `typ` split, revocation, hardened cookies. |
+| `express-ts/base-backend-jwt-prisma` | JWT (cookies + CSRF), real accounts | The only `express-ts` template with a database: Postgres through Prisma 7, argon2id passwords, rotated refresh tokens with reuse detection, tests against a real Postgres. Start here if you need persistence. |
 
-These share the config in [`standard/`](./standard) - ESLint, TypeScript,
-`.editorconfig`, lefthook, CI. See that folder's README before changing any of it.
+These share the ESLint, TypeScript, `.editorconfig`, lefthook and CI config in
+[`standard/`](./standard). Read its README before changing any of it.
 
-### Full-stack - Bun + Elysia + Vue + Drizzle
+### Full-stack: Bun + Elysia + Vue + Drizzle
 
-| Template          | Auth                     | Notes                            |
-| ----------------- | ------------------------ | -------------------------------- |
-| `bevd/base`       | none                     | REST + tRPC + gRPC over shared services, plus a Vue 3 frontend typed end to end. |
-| `bevd/base-jwt`   | JWT (httpOnly cookies) + roles | The same, plus sessions, refresh-token rotation, and admin-only resources. |
-| `bevd/base-lacewing` | JWT via [lacewing](https://github.com/Smiduweorc/lacewing) + roles + CSRF | `base-jwt` with the token lifecycle moved onto lacewing, plus double-submit CSRF end to end (Vue client included). Doubles as a lacewing demo. |
+| Template | Auth | Notes |
+| --- | --- | --- |
+| `bevd/base` | none | REST + tRPC + gRPC over shared services, plus a Vue 3 frontend typed from the router. |
+| `bevd/base-jwt` | JWT (httpOnly cookies) + roles | The same, plus sessions, refresh-token rotation and admin-only resources. |
+| `bevd/base-lacewing` | JWT via [lacewing](https://github.com/Smiduweorc/lacewing) + roles + CSRF | `base-jwt` with the token handling moved onto lacewing, plus double-submit CSRF through to the Vue client. |
 
-See [`bevd/`](./bevd). These use **Biome** instead of `standard/`'s ESLint -
-that folder's README explains why, and lists the footguns worth knowing before you start.
+See [`bevd/`](./bevd). These use Biome instead of `standard/`'s ESLint; that README says
+why and lists the gotchas.
 
 ## Grab a template
 
-pulls a single folder, no git history, no extra tooling:
+degit pulls a single folder, with no git history:
 
 ```sh
 npx degit grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/plates/express-ts/base-backend my-app
@@ -57,7 +55,7 @@ cd my-app
 git init
 ```
 
-Swap `express-ts/base-backend` for whichever template you want - `bevd/base-jwt`, and so on.
+Swap `express-ts/base-backend` for the template you want, such as `bevd/base-jwt`.
 
 <details>
 <summary>With plain git instead (sparse checkout)</summary>
@@ -78,44 +76,27 @@ git init
 
 ## Then
 
-For a **`bevd/`** template, follow [its own README](./bevd) - those run on Bun, not npm.
+A `bevd/` template runs on Bun; follow [its README](./bevd).
 
-For an **`express-ts/`** template:
+An `express-ts/` template needs Node 24 (see `.nvmrc`):
 
 ```sh
 npm install   # also installs the git hooks
-npm run dev   # watch mode; auto-loads the committed .env.development
+npm run dev   # loads the committed .env.development
 ```
 
-Every `express-ts` template ships a committed `.env.development` with safe
-dev-only values (the JWT templates' secrets included), so `npm run dev` works
-straight after `npm install`. For production, `cp .env.production.example
-.env.production` and fill it in - `npm start` loads that file.
+Each `express-ts` template commits a `.env.development` with dev-only values, the JWT
+secrets included, so `npm run dev` works straight after `npm install`. For production,
+`cp .env.production.example .env.production` and fill it in; `npm start` loads that file.
 
-`base-backend-jwt-prisma` also needs a Postgres: `docker compose up -d db` then
-`npm run db:migrate`, for `npm run dev` and for `npm test` alike. Its README
-says what else is different.
+`base-backend-jwt-prisma` also needs Postgres; its README covers that.
 
 The JWT templates need `JWT_SECRET`, `JWT_REFRESH_SECRET`, `COOKIE_SECRET` and
-`CSRF_SECRET`, each at least 32 characters (`base-backend-jwt-prisma` needs only
-`JWT_SECRET` and `CSRF_SECRET`; its refresh tokens are database rows, not JWTs,
-and nothing signs a cookie). For `base-backend-lacewing` they must
-also be actually random - lacewing entropy-checks them at boot - so run
+`CSRF_SECRET`, each at least 32 characters. `base-backend-jwt-prisma` needs only
+`JWT_SECRET` and `CSRF_SECRET`: its refresh tokens are database rows and nothing signs a
+cookie. `base-backend-lacewing` entropy-checks them at boot, so they must be random; run
 `npm run secrets` and paste the output into `.env.production`.
 
-When a lacewing template's tokens need verifying from a second service while staying on
-HMAC, see [docs/symmetric-jwks.md](./docs/symmetric-jwks.md) before building a JWKS
-endpoint - a symmetric JWKS is a secret document, not a public one.
-
-### Scripts (`express-ts`)
-
-| Script                | Does                                        |
-| --------------------- | ------------------------------------------- |
-| `npm run dev`         | Watch mode (`node --watch`); loads `.env.development`. |
-| `npm run build`       | Compile to `dist/` (tests excluded).        |
-| `npm start`           | Run the build; loads `.env.production`.      |
-| `npm test`            | Jest.                                       |
-| `npm run typecheck`   | Type-check everything, tests included.      |
-| `npm run lint`        | ESLint.                                     |
-
-Requires Node 24 (see `.nvmrc`).
+To verify a lacewing template's tokens from a second service while staying on HMAC, read
+[docs/symmetric-jwks.md](./docs/symmetric-jwks.md) before building a JWKS endpoint. A
+symmetric JWKS is a secret document.

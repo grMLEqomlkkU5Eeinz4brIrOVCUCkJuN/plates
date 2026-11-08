@@ -1,37 +1,32 @@
 # Serving your own JWKS when your keys are symmetric (HMAC)
 
 Both lacewing templates (`express-ts/base-backend-lacewing`, `bevd/base-lacewing`) sign
-with an HMAC secret from the environment. At some point a second service needs to verify
-those tokens, someone says "just point it at a JWKS endpoint", and this guide exists
-because with symmetric keys that sentence hides a trap.
+with an HMAC secret from the environment. When a second service needs to verify those
+tokens, "point it at a JWKS endpoint" is the usual answer, and with symmetric keys it
+publishes your signing key.
 
-## The one thing to understand first
+An asymmetric JWKS entry holds a public key, which only lets the reader verify. A
+symmetric (`kty: "oct"`) entry holds the secret itself: the `k` field is your signing key,
+base64url-encoded, not encrypted. Whoever can read the document can mint tokens.
 
-An asymmetric JWKS entry contains a *public* key: anyone may read it, because reading it
-only lets you **verify**. A symmetric (`kty: "oct"`) JWKS entry contains **the secret
-itself** - the `k` field is your signing key, base64url-encoded, not encrypted. Whoever
-can read that document can *mint* tokens, not just check them.
+Never serve `oct` keys from a public JWKS endpoint. A symmetric JWKS is a secret document;
+distribute it like one.
 
-So the rule is short:
+lacewing will consume symmetric JWKS documents, and entropy-checks their entries like a
+directly imported secret, but where the document lives is up to you. Three ways to do it,
+safest first.
 
-> **Never serve `oct` keys from a public JWKS endpoint.** A symmetric JWKS is a secret
-> document. Distribute it like one.
+## Option 1: no endpoint
 
-lacewing will happily *consume* symmetric JWKS documents - entries are entropy-checked
-just like a directly imported secret - but where that document lives is your
-responsibility. Three ways to do it, safest first.
-
-## Option 1: no endpoint at all (recommended)
-
-You control both services, and the "endpoint" was only ever a distribution mechanism -
-so use the distribution mechanism you already trust: your secret manager. Ship the JWKS
-*document* to the verifier out-of-band and inline it into the profile:
+You control both services, so use the channel you already trust for `JWT_SECRET`, your
+secret manager. Ship the JWKS document to the verifier out of band and inline it into the
+profile:
 
 ```ts
 import { defineProfile } from "lacewing";
 
-// From your secret manager / encrypted env - the same channel JWT_SECRET
-// already travels through. NOT from a URL.
+// From your secret manager or encrypted env, the same channel JWT_SECRET
+// already travels through. Not from a URL.
 const jwks = JSON.parse(process.env.AUTH_JWKS!);
 
 const profile = defineProfile({
@@ -51,22 +46,21 @@ import { exportKeyJWK, importKey } from "lacewing";
 
 const key = await importKey(process.env.JWT_SECRET!, "HS256");
 const jwks = { keys: [await exportKeyJWK(key)] };
-// -> store JSON.stringify(jwks) in the secret manager
+// store JSON.stringify(jwks) in the secret manager
 ```
 
-This gets you the JWKS *format* (one document, multiple keys, works for every consumer)
-without the JWKS *endpoint* (a URL that must now be access-controlled forever).
+You get the JWKS format (one document, several keys, readable by any consumer) without an
+endpoint that has to be access-controlled forever.
 
 ## Option 2: an authenticated internal endpoint
 
-If you genuinely need a URL - many consumers, frequent rotation, a secret manager you
-cannot reach from every service - treat the endpoint as what it is: a credentialed,
-internal API that happens to speak JWKS.
+If you need a URL (many consumers, frequent rotation, a secret manager not every service
+can reach), treat the endpoint as a credentialed internal API that happens to serve JWKS.
 
-Serving it (Express template shown; the Elysia version is the same idea):
+Serving it from the Express template (the Elysia version is the same):
 
 ```ts
-// src/routes/api/v1/jwks.routes.ts - NOT mounted on the public router
+// src/routes/api/v1/jwks.routes.ts, not mounted on the public router
 import { Router } from "express";
 import { exportKeyJWK } from "lacewing";
 import { authKit } from "../../../config/lacewing";
@@ -82,13 +76,13 @@ router.get("/", requireServiceAuth, async (_req, res) => {
 export default router;
 ```
 
-`requireServiceAuth` is whatever your infra already uses between services - mTLS, a
-static bearer token, network policy that only admits the mesh. Without it you have
-published your signing key.
+`requireServiceAuth` is whatever you already use between services: mTLS, a static bearer
+token, a network policy that only admits the mesh. Without it you have published your
+signing key.
 
-Consuming it: `createRemoteJWKSet` gives you caching, rotation refetch, fetch cooldowns
-and a response-size cap for free. It refuses non-HTTPS URLs, and it takes a `fetch`
-override, which is where your credential goes:
+To consume it, `createRemoteJWKSet` caches, refetches on rotation, applies fetch cooldowns
+and caps the response size. It refuses non-HTTPS URLs and takes a `fetch` override, which
+is where your credential goes:
 
 ```ts
 import { createRemoteJWKSet, defineProfile } from "lacewing";
@@ -114,31 +108,29 @@ const profile = defineProfile({
 ## A caveat about rotation
 
 lacewing's JWKS selection is exact: the token's algorithm (and `kid`, when present) must
-single out **one** key, and two candidates with nothing to tell them apart is treated as
-your configuration mistake, not something to guess at. lacewing's signer does not
-currently stamp a `kid` into the header - so two `HS256` `oct` keys in the same document
-(the classic old-key/new-key overlap) will make verification of your own tokens fail
-with `JWKSNoMatchingKey`.
+pick out one key, and two indistinguishable candidates are treated as a configuration
+error. lacewing's signer does not stamp a `kid` into the header yet, so two `HS256` `oct`
+keys in one document (the usual old-key/new-key overlap) make verification of your own
+tokens fail with `JWKSNoMatchingKey`.
 
 Until your tokens carry a `kid`, rotate symmetric keys one of these ways:
 
-- **Hard cutover.** Access tokens in these templates live 15 minutes; deploy the new
-  secret everywhere and accept one token-lifetime of 401s that resolve through refresh.
-- **Rotate across algorithms.** `HS256` -> `HS512` during the overlap window: different
-  algorithm, unambiguous selection, both in `algorithms: [...]` while both are live.
+- Hard cutover. Access tokens in these templates live 15 minutes; deploy the new secret
+  everywhere and accept one token lifetime of 401s that clear on refresh.
+- Rotate across algorithms. Move from `HS256` to `HS512` during the overlap, so selection
+  is unambiguous, with both in `algorithms: [...]` while both are live.
 
-## Option 3: the actual fix - go asymmetric
+## Option 3: asymmetric keys
 
-Every constraint above - the secret document, the authenticated endpoint, the credential
-for fetching it - exists because with HMAC **every verifier can mint**. The moment you
-have more than one verifying service, that is usually the wrong trust shape, and the
-20-minute fix is real keys:
+The secret document, the authenticated endpoint and the fetch credential are all needed
+because with HMAC every verifier can mint. With more than one verifying service, use a
+key pair instead:
 
 ```ts
 // Signer
 import { exportKeyJWK, generateKeyPair } from "lacewing";
 const { publicKey, privateKey } = await generateKeyPair("EdDSA", { extractable: true });
-// serve { keys: [await exportKeyJWK(publicKey)] } on a PUBLIC /jwks - it's a public key
+// serve { keys: [await exportKeyJWK(publicKey)] } on a public /jwks
 
 // Verifier
 const profile = defineProfile({
@@ -151,16 +143,5 @@ const profile = defineProfile({
 });
 ```
 
-Now the endpoint can be public, caching needs no auth story, a leaked JWKS costs you
-nothing, and verifiers can never mint. This is the paved road; Options 1 and 2 are for
-when you cannot take it yet.
-
-## Summary
-
-| Situation | Do this |
-| --- | --- |
-| One service signs and verifies | What the templates already do: env secret, no JWKS. |
-| Few internal verifiers, HMAC must stay | **Option 1**: JWKS document via the secret manager, inlined into the profile. |
-| Many verifiers / URL-based distribution, HMAC must stay | **Option 2**: authenticated HTTPS endpoint + `createRemoteJWKSet` with a credentialed `fetch`. |
-| More than one verifier, no hard constraint | **Option 3**: EdDSA key pair, public JWKS endpoint. |
-| Symmetric keys on a public JWKS endpoint | Never. That is the signing key. |
+The endpoint can be public, caching needs no auth, a leaked JWKS costs nothing, and
+verifiers cannot mint. Use Options 1 and 2 only until you can do this.

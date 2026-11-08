@@ -1,11 +1,6 @@
 # Frameworks in these templates
 
-What each template actually runs on, and why that one. If you are deciding whether a
-template fits, read the "Pick by" column first; if you are already inside one, the rest
-of the page is the inventory.
-
-Everything here is already wired up in at least one template - this is not a shopping
-list of things you could add.
+What each template runs on. Everything here is already in at least one template.
 
 ## Pick by
 
@@ -19,100 +14,94 @@ list of things you could add.
 
 ## Backend
 
-### `express-ts/` - Node + Express
+### `express-ts/`: Node + Express
 
-The conservative option. Boring on purpose: it is the stack most people can already read,
-and the one most hosting, tracing and APM vendors document first.
+Node and Express, the stack most people already know.
 
-| Layer | Choice | Why this one |
+| Layer | Choice | Notes |
 | --- | --- | --- |
-| Runtime | Node >= 24 (`.nvmrc`) | Native TS type-stripping, stable `node:test`-era tooling, LTS support horizon. |
-| HTTP | [Express 5](https://expressjs.com) | v5 finally propagates async route rejections to the error handler, which is what makes the no-`asyncHandler` templates possible. |
-| Validation | [zod](https://zod.dev) v4 | Parses at the edge and gives the parsed type back, so handlers never re-check shapes. |
-| Errors | [http-errors](https://github.com/jshttp/http-errors) | Status codes as throwable values; one error middleware turns them into responses. |
-| Security headers | [helmet](https://helmetjs.github.io) | CSP, HSTS, frame options - the set you would otherwise hand-roll wrong. |
-| CORS | [cors](https://github.com/expressjs/cors) | Origin allowlist; matters as soon as a browser talks to the service. |
-| Logging | [winston](https://github.com/winstonjs/winston) + `winston-daily-rotate-file` | Structured logs to `logs/`, rotated, with [morgan](https://github.com/expressjs/morgan) feeding it the access log. |
-| API docs | [swagger-jsdoc](https://github.com/Surnet/swagger-jsdoc) + [swagger-ui-express](https://github.com/scottie1984/swagger-ui-express) | OpenAPI generated from JSDoc next to the route, so it rots slower than a separate spec file. |
-| Config | Node's native `--env-file` | `.env.development` in dev, `.env.production` for the built artefact; real env vars still win over both. Parsed by [zod](https://zod.dev) in `config/env.ts`. |
+| Runtime | Node 24+ (`.nvmrc`) | |
+| HTTP | [Express 5](https://expressjs.com) | v5 passes rejected async handlers to the error handler, so there is no `asyncHandler` wrapper. |
+| Validation | [zod](https://zod.dev) v4 | Parses at the edge and returns the parsed type. |
+| Errors | [http-errors](https://github.com/jshttp/http-errors) | Thrown status codes; one error middleware turns them into responses. |
+| Security headers | [helmet](https://helmetjs.github.io) | CSP, HSTS, frame options. |
+| CORS | [cors](https://github.com/expressjs/cors) | Origin allowlist. |
+| Logging | [winston](https://github.com/winstonjs/winston) + `winston-daily-rotate-file` | Rotated files in `logs/`, with [morgan](https://github.com/expressjs/morgan) for the access log. |
+| API docs | [@asteasolutions/zod-to-openapi](https://github.com/asteasolutions/zod-to-openapi) + [swagger-ui-express](https://github.com/scottie1984/swagger-ui-express) | Routes described in `src/openapi/` from the same zod schemas; Swagger UI at `/docs` outside production. |
+| Config | Node's `--env-file` | `.env.development` in dev, `.env.production` for the build; real env vars win over both. Parsed by zod in `config/env.ts`. |
 
 Auth templates add:
 
-| Layer | Choice | Why this one |
+| Layer | Choice | Notes |
 | --- | --- | --- |
-| Tokens (`-jwt`) | [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) | The default. Safe if you pin `algorithms` on verify - the templates do. |
-| Tokens (`-lacewing`) | [lacewing](https://github.com/Smiduweorc/lacewing) | RFC 8725 defaults you cannot switch off: pinned algorithms, `typ` split between access and refresh, entropy-checked secrets, revocation, hardened cookies. |
-| CSRF | [csrf-csrf](https://github.com/Psifi-Solutions/csrf-csrf) | Double-submit, which is the pattern that survives cookie-based auth. |
-| Cookies | [cookie-parser](https://github.com/expressjs/cookie-parser) | Signed cookie parsing. `-lacewing` issues cookies through lacewing instead. |
+| Tokens (`-jwt`, `-jwt-prisma`) | [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) | Both sign with HS256 and pin `algorithms: ["HS256"]` on verify. |
+| Tokens (`-lacewing`) | [lacewing](https://github.com/Smiduweorc/lacewing) | RFC 8725 defaults that cannot be turned off: pinned algorithms, `typ` split between access and refresh, entropy-checked secrets, revocation, hardened cookies. |
+| CSRF | [csrf-csrf](https://github.com/Psifi-Solutions/csrf-csrf) | Double submit. |
+| Cookies | [cookie-parser](https://github.com/expressjs/cookie-parser) | Signed cookie parsing. `-lacewing` issues its token cookies through lacewing. |
 
 `base-backend-jwt-prisma` adds:
 
-| Layer | Choice | Why this one |
+| Layer | Choice | Notes |
 | --- | --- | --- |
-| Database | [Prisma](https://www.prisma.io) 7 + Postgres, over [@prisma/adapter-pg](https://www.prisma.io/docs/orm/overview/databases/postgresql) | The one people ask for by name. Prisma 7 has no engine binary; the pool is node-postgres' and its timeouts are named in `config/env.ts`. Every query lives in `services/`. |
-| Passwords | [argon2](https://github.com/ranisalt/node-argon2) | argon2id at the OWASP floor, cost read from the environment so the suite can turn it down. Prebuilt binaries, no toolchain. |
-| Refresh tokens | 256 random bits, SHA-256 in a `refresh_tokens` row | Rotated on every refresh, single use by conditional update, whole family revoked on reuse. Nothing to verify without the row, which is the point. |
+| Database | [Prisma](https://www.prisma.io) 7 + Postgres, over [@prisma/adapter-pg](https://www.prisma.io/docs/orm/overview/databases/postgresql) | No engine binary in Prisma 7; the pool is node-postgres' and its timeouts are in `config/env.ts`. Every query lives in `services/`. |
+| Passwords | [argon2](https://github.com/ranisalt/node-argon2) | argon2id at the OWASP minimum, cost read from the environment so the tests can lower it. Prebuilt binaries. |
+| Refresh tokens | 256 random bits, SHA-256 in a `refresh_tokens` row | Rotated on every refresh, single use by conditional update, whole family revoked on reuse. |
 
-### `bevd/` - Bun + Elysia
+### `bevd/`: Bun + Elysia
 
-The fast option, and the one to take if you want more than REST. See [`bevd/README.md`](../bevd/README.md).
+Take this one if you want tRPC or gRPC as well as REST. See
+[`bevd/README.md`](../bevd/README.md).
 
-| Layer | Choice | Why this one |
+| Layer | Choice | Notes |
 | --- | --- | --- |
-| Runtime | [Bun](https://bun.sh) >= 1.3 | Runs TypeScript directly; the package manager, test runner and workspace tooling are one binary. |
-| HTTP | [Elysia](https://elysiajs.com) | Built for Bun, end-to-end typed, and `.mount()`s the tRPC and gRPC handlers without an adapter layer. |
-| RPC | [tRPC 11](https://trpc.io) | The frontend imports the router *type* - no client codegen, no drift. |
-| RPC (service-to-service) | [@grpc/grpc-js](https://grpc.io/docs/languages/node/) | Separate port, HTTP/2, `.proto` in `backend/proto/`. What another microservice calls. |
-| Database | [Drizzle](https://orm.drizzle.team) + Postgres | SQL you can read, migrations in the repo, types inferred from the schema. |
+| Runtime | [Bun](https://bun.sh) 1.3+ | Runs TypeScript directly; package manager and workspaces in one binary. |
+| HTTP | [Elysia](https://elysiajs.com) | `.mount()`s the tRPC handler without an adapter. |
+| RPC | [tRPC 11](https://trpc.io) | The frontend imports the router type; no client codegen. |
+| RPC (service to service) | [@grpc/grpc-js](https://grpc.io/docs/languages/node/) | Separate port, HTTP/2, `.proto` files in `backend/proto/`. |
+| Database | [Drizzle](https://orm.drizzle.team) + Postgres | Migrations in the repo, types inferred from the schema. |
 | Validation | [arktype](https://arktype.io) | One schema is both tRPC's input parser and the service's argument type. |
-| Logging | [pino](https://getpino.io) | JSON logs, fastest of the Node-compatible loggers, `pino-pretty` in dev. |
-| API docs | [@elysiajs/openapi](https://elysiajs.com/plugins/openapi.html) | OpenAPI derived from the route schemas rather than written by hand. |
+| Logging | [pino](https://getpino.io) | JSON logs, `pino-pretty` in dev. |
+| API docs | [@elysiajs/openapi](https://elysiajs.com/plugins/openapi.html) | Renders the document built in `src/openapi/`; its own route inference is off. |
 
 ## Frontend
 
-Only the `bevd/` templates ship one. It is deliberately small - a working client, not a
-starter app.
+Only the `bevd/` templates have one. It is a small working client.
 
-| Layer | Choice | Why this one |
+| Layer | Choice | Notes |
 | --- | --- | --- |
-| Framework | [Vue 3](https://vuejs.org) | `<script setup>` + Composition API. Enough structure for a real UI, small enough to read in one sitting. |
-| Build | [Vite](https://vite.dev) | Dev server, HMR, production build. Nothing configured beyond the Vue plugin. |
-| API client | [@trpc/client](https://trpc.io/docs/client/vanilla) | `httpBatchLink` against the same router the backend exports. Rename a Drizzle column and the frontend stops compiling. |
+| Framework | [Vue 3](https://vuejs.org) | `<script setup>` + Composition API. |
+| Build | [Vite](https://vite.dev) | Nothing configured beyond the Vue plugin. |
+| API client | [@trpc/client](https://trpc.io/docs/client/vanilla) | `httpBatchLink` against the router the backend exports. Rename a Drizzle column and the frontend stops compiling. |
 | Types | [vue-tsc](https://github.com/vuejs/language-tools) | Type-checks `.vue` files in CI and before build. |
 | Tests | [Vitest](https://vitest.dev) + [@vue/test-utils](https://test-utils.vuejs.org) + [happy-dom](https://github.com/capricorn86/happy-dom) | Component tests without a browser. |
-| Styling | plain CSS in `src/style.css` | CSS custom properties and a `prefers-color-scheme` block. No framework to rip out. |
-| State | Composition API composables (`useAuth.ts` in `-lacewing`) | Pinia is one dependency away if you outgrow it; nothing here needs it yet. |
+| Styling | plain CSS in `src/style.css` | Custom properties and a `prefers-color-scheme` block. |
+| State | composables (`useAuth.ts` in `-lacewing`) | No Pinia. |
 
-Deliberately absent: **vue-router**, **Pinia**, a component library, and any CSS framework.
-Each is a decision that belongs to your app, and each is easier to add than to remove.
-If you want the auth version of the frontend, `bevd/base-lacewing/frontend` has login,
-role-gated admin UI and the browser half of double-submit CSRF in
+No vue-router, Pinia, component library or CSS framework. Add what you need. For the
+auth version of the frontend, `bevd/base-lacewing/frontend` has login, the role-gated
+admin UI and the browser half of double-submit CSRF in
 [`src/lib/trpc.ts`](../bevd/base-lacewing/frontend/src/lib/trpc.ts).
 
 ## Shared tooling
 
 | Concern | `express-ts/` | `bevd/` |
 | --- | --- | --- |
-| Lint | ESLint 10 (flat config), from [`standard/`](../standard); formatting via `.editorconfig` | [Biome](https://biomejs.dev) (`biome.jsonc`) |
-| Tests | [Jest](https://jestjs.io) + ts-jest + [supertest](https://github.com/ladjs/supertest) | [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (real Postgres, in-process) |
+| Lint | ESLint 10 (flat config) from [`standard/`](../standard); formatting via `.editorconfig` | [Biome](https://biomejs.dev) (`biome.jsonc`) |
+| Tests | [Jest](https://jestjs.io) + ts-jest + [supertest](https://github.com/ladjs/supertest) | [Vitest](https://vitest.dev) + [PGlite](https://pglite.dev) (Postgres in-process) |
 | Dev loop | `node --watch` + [tsx](https://tsx.is) loader | `bun --watch` |
 | Git hooks | [lefthook](https://lefthook.dev) | lefthook |
 | Commits | [commitlint](https://commitlint.js.org) + Conventional Commits | same |
 | CI | GitHub Actions | GitHub Actions |
-| Local services | - | docker-compose (Postgres 17) |
+| Local services | none | docker-compose (Postgres 17) |
 
-The split exists because Biome is one binary and does not fight Bun; the reasoning is in
-[`bevd/README.md`](../bevd/README.md). Everything else - tabs, double quotes, Conventional
-Commits, `.editorconfig` - is the same on both sides.
+Why `bevd/` uses Biome is in [`bevd/README.md`](../bevd/README.md). Tabs, double quotes,
+Conventional Commits and `.editorconfig` are the same on both sides.
 
-## Not here, on purpose
+## Not included
 
-No queue, no cache, no ORM in the `express-ts/` templates except the one
-`-prisma` variant, no auth provider SDK, no Kubernetes manifests, no Terraform. These are the pieces where the right answer depends
-entirely on what you are building and what you already run, and a template that guesses
-wrong costs more than one that stays quiet. Add them in your own repo, after you have
-grabbed the template.
+No queue, no cache, no auth provider SDK, no Kubernetes manifests, no Terraform, and no
+ORM in `express-ts/` except the `-prisma` variant. They depend on what you are building
+and what you already run; add them in your own repo.
 
-Some of them may still arrive here eventually -
-[docs/expansion-candidates.md](./expansion-candidates.md) is the maintainer-facing list of
-what is being weighed and why.
+[docs/expansion-candidates.md](./expansion-candidates.md) is the maintainer's list of what
+might be added here.

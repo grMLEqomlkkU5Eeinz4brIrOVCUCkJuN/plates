@@ -1,9 +1,7 @@
 # bevd/base-jwt
 
-[`bevd/base`](../base) - Bun + Elysia + Vue + Drizzle, with REST, tRPC and gRPC - plus
-**JWT authentication and role-based authorization**.
-
-Everything in the base template applies here. This README covers only what auth adds.
+[`bevd/base`](../base) plus JWT authentication and role-based authorization. Everything
+in the base README applies; this one covers what auth adds.
 
 ## Run it
 
@@ -11,42 +9,29 @@ Everything in the base template applies here. This README covers only what auth 
 bun install
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-
-# The app refuses to start without a real signing key:
-#   JWT_SECRET must be at least 32 characters.
-openssl rand -base64 48   # paste into backend/.env
-
-bun run db:up
-bun run db:push
-bun run db:seed   # alice@example.com (admin) and bob@example.com - both password123
-
+openssl rand -base64 48   # paste into backend/.env as JWT_SECRET (32+ characters or it will not start)
+bun run db:up && bun run db:push
+bun run db:seed           # alice@example.com (admin) and bob@example.com, both password123
 bun run dev
 ```
 
-Sign in as each and watch the UI change: Bob sees his own draft and can edit only his own
-posts; Alice sees everything, can moderate anyone's post, and gets the admin panel.
+Sign in as each: Bob sees his own draft and can edit only his own posts; Alice sees
+everything, can moderate any post, and gets the admin panel.
 
-## How a session works
+## Delete first
 
-| | |
-| --- | --- |
-| **Access token** | A JWT (HS256), 15 minutes, carries `sub`, `email` and `role`. |
-| **Refresh token** | *Not* a JWT. 32 random bytes, stored as a SHA-256 hash. |
-| **Where they live** | httpOnly cookies. The Vue app never holds a token. |
+The seeded users and their `password123`, and the `post` example resource once you have
+your own.
 
-Two deliberate departures from the usual recipe:
+## Sessions
 
-**The refresh token is opaque, not signed.** A signed refresh JWT cannot be taken back -
-it stays valid until it expires, so "log out" is a lie you tell the client. Here each one
-is a row (`refresh_tokens`), so logout revokes it for real, and `revokeAllSessions` can
-end every session at once. Only the hash is stored: a leaked database hands over nothing
-usable. Refreshing **rotates** the token, so a stolen one is good for a single use at most.
-
-**The browser never sees a token.** They go into httpOnly cookies, which script cannot
-read - so an XSS bug cannot walk off with the session. The Vue app has no `localStorage`
-token and no `Authorization` header; it just asks `auth.me` who it is. Non-browser callers
-(curl, another service, gRPC) send `Authorization: Bearer <jwt>` instead, and
-`http/actor.ts` accepts either.
+- Access token: a JWT (HS256), 15 minutes, carrying `sub`, `email` and `role`.
+- Refresh token: not a JWT. 32 random bytes, stored as a SHA-256 hash in
+  `refresh_tokens`, so logout revokes it and `revokeAllSessions` ends every session.
+  Refreshing rotates it, so a stolen one works once at most.
+- Both live in httpOnly cookies. The Vue app holds no token and sends no `Authorization`
+  header; it asks `auth.me` who it is. Non-browser callers (curl, another service, gRPC)
+  send `Authorization: Bearer <jwt>`, and `http/actor.ts` accepts either.
 
 ## Authorization
 
@@ -58,36 +43,27 @@ protectedProcedure  // signed in; ctx.actor is narrowed to Actor (not | null)
 adminProcedure      // role === "admin"
 ```
 
-But **the procedure wrapper is not the security boundary.** The rules live in the
-services (`auth/actor.ts`, `services/*.service.ts`), because gRPC never passes through a
-tRPC procedure. A guard bolted onto the router alone would leave the gRPC door wide open.
-The transports reject early for a clean error; the service is what makes the rule true.
-
-What the rules actually are:
+The procedure types reject early with a clean error, but the rules live in the services
+(`auth/actor.ts`, `services/*.service.ts`), because gRPC never goes through a tRPC
+procedure. A guard on the router alone would leave gRPC unprotected.
 
 | Resource | Rule |
 | --- | --- |
-| `post.list` / `post.byId` | Public sees published. Signed in also sees **their own drafts**. Admin sees all. |
-| `post.create` | Any signed-in user. **Authorship comes from the token**, never the request body. |
-| `post.update` / `post.delete` | The author, **or** an admin. |
+| `post.list` / `post.byId` | Anonymous sees published. Signed in also sees their own drafts. Admin sees all. |
+| `post.create` | Any signed-in user. Authorship comes from the token, never the request body. |
+| `post.update` / `post.delete` | The author or an admin. |
 | `user.*` | Admin only. |
 
-Two details worth stealing:
+- Someone else's draft is `NOT_FOUND`, not `FORBIDDEN`, so its existence does not leak.
+- Changing a role revokes that user's sessions. The old access token still says
+  `role: "user"` until it expires, but it cannot be renewed, so a demotion applies within
+  one access-token lifetime.
+- The last admin cannot demote or delete themselves.
 
-- **Someone else's draft is `NOT_FOUND`, not `FORBIDDEN`.** `FORBIDDEN` would confirm the
-  post exists, which is itself a leak.
-- **Changing a role revokes that user's sessions.** Their old access token still says
-  `role: "user"` until it expires; dropping the refresh tokens means it cannot be renewed,
-  so a demotion takes hold within one token lifetime instead of lingering for a week.
+## REST and OpenAPI
 
-The admin API also refuses to let the last admin demote or delete themselves - otherwise
-the system locks itself out with no way back in through the app.
-
-## REST and the OpenAPI document
-
-Seven REST routes under `/api/v1` mirror the core tRPC procedures, for clients without a
-tRPC client. Each calls the same service function with the same arktype input schema, and
-answers with the same body the procedure returns:
+Seven REST routes under `/api/v1` mirror the core tRPC procedures. Each calls the same
+service function with the same arktype schema and returns the same body:
 
 | Route | Mirrors | Who |
 | --- | --- | --- |
@@ -99,33 +75,29 @@ answers with the same body the procedure returns:
 | `GET /api/v1/posts/:id` | `post.byId` | anyone; someone else's draft is 404 |
 | `POST /api/v1/posts` | `post.create` | signed in; answers 201 |
 
-That is enough to hold and end a session and to read and write posts, and it covers each kind of
-caller (anonymous, refresh cookie, signed in). Everything else is RPC-only and the document
-says so: `auth.register`, `post.update`, `post.delete`, the admin `user.*` procedures, and
-`health.ping` and `health.db`. Twin a procedure when a
-client needs it: a route in `src/rest/`, an entry in `src/openapi/paths/`, its name out of
-`RPC_ONLY_PROCEDURES`, then `bun run openapi`.
+Everything else is RPC-only and the document says so: `auth.register`, `post.update`,
+`post.delete`, the admin `user.*` procedures, `health.ping` and `health.db`. To add a REST
+twin: a route in `src/rest/`, an entry in `src/openapi/paths/`, remove its name from
+`RPC_ONLY_PROCEDURES`, then `bun run --cwd backend openapi`.
 
-Errors are `{ "error": { "code", "message", "requestId" } }`, with the status tRPC sends for
-the same code. A route that needs a session rejects an anonymous caller before it looks at
-the body, as `protectedProcedure` does. Logout takes no body but, like the tRPC procedure,
-answers 415 unless it is sent as `application/json`: a cross-site form cannot set that
-without a CORS preflight, so a forged logout never reaches the handler.
+Errors are `{ "error": { "code", "message", "requestId" } }` with the status tRPC sends
+for the same code. A route that needs a session rejects an anonymous caller before
+reading the body. Logout takes no body but answers 415 unless sent as
+`application/json`, as the tRPC procedure does: a cross-site form cannot set that without
+a CORS preflight.
 
-The document is OpenAPI 3.1, built from `src/openapi/` rather than inferred, and served
-outside production at http://localhost:3000/docs (the JSON at `/docs.json`). `bun run
-openapi` writes the committed `backend/openapi.json`, and needs no `.env`: the input schemas
-live in `src/models/`, apart from the services, so nothing it imports reads the
-environment. The tests hold the document to the
-code: every route described and nothing else, the very schema objects the routes and the
-procedures validate with, the access levels against what the server actually refuses,
-every REST response in the test suite against its schema, and the committed file against
-the generator.
+The document is OpenAPI 3.1, built from `src/openapi/`, and served outside production at
+`/docs` (JSON at `/docs.json`). `bun run --cwd backend openapi` rewrites the committed
+`backend/openapi.json` and needs no `.env`, because the input schemas live in
+`src/models/` and nothing it imports reads the environment. The tests check every route
+is described, the schemas match the ones the routes validate with, the access levels
+match what the server refuses, every REST response matches its schema, and the committed
+file matches the generator.
 
 ## gRPC with auth
 
-Same services, different envelope. No cookies - log in, get the tokens in the response
-body, and send the access token as metadata:
+No cookies. Log in, take the tokens from the response body, and send the access token as
+metadata:
 
 ```ts
 const metadata = new grpc.Metadata();
@@ -141,35 +113,27 @@ client.CreatePost({ title: "Hi", body: "there" }, metadata, callback);
 | Editing someone else's post | `PERMISSION_DENIED` |
 | Empty title | `INVALID_ARGUMENT` |
 
-`proto/auth.proto` (sessions), `proto/user.proto` (admin only), `proto/post.proto`.
+Protos: `proto/auth.proto` (sessions), `proto/user.proto` (admin only),
+`proto/post.proto`.
 
 ## Tests
 
-```sh
-bun run test    # 77 backend, 10 frontend
-```
+`bun run test`. The backend tests cover the authorization rules: ownership, admin
+override, draft visibility, privilege escalation, token rotation and replay,
+self-demotion. They run on PGlite, and the gRPC tests use a real client with signed tokens
+over a real port.
 
-The backend tests are where the authorization rules are actually pinned down - ownership,
-admin override, draft visibility, privilege escalation attempts, token rotation and
-replay, self-demotion. They run against PGlite (a real Postgres, in-process), and the gRPC
-tests use a real client with real signed tokens over a real port.
+## Not included
 
-## What is deliberately not here
-
-- **CSRF tokens.** Cookie auth plus `SameSite=lax` plus a CORS allowlist covers the tRPC
-  surface, because every mutation is a `POST` with `content-type: application/json`, which
-  is not a "simple request" and so is preflighted. If you add cookie-authenticated form
-  posts or relax `SameSite`, you need CSRF tokens - see `csrf-csrf` in the Express
-  template. Note that this argument is about forged *requests*; a host under
-  `COOKIE_DOMAIN` writing an `access_token` cookie of its own is a different attack, and
-  `readCookies` answers it by dropping any name that arrives twice.
-- **Rate limiting** on login. Add it before you ship; brute force is the obvious attack on
-  the one endpoint that accepts passwords.
-- **Email verification and password reset.** Both need a mailer, which is a choice this
-  template should not make for you.
-- **`Bun.password`.** It is the same argon2id, but it only exists under Bun, and Vitest
-  runs its workers under Node - every test that imports it would break. `@node-rs/argon2`
-  (what `auth/password.ts` uses) produces the same kind of hash and runs under both.
+- CSRF tokens. Cookie auth with `SameSite=lax` and a CORS allowlist covers tRPC, because
+  every mutation is a JSON `POST` and so is preflighted. If you add cookie-authenticated
+  form posts or relax `SameSite`, you need CSRF tokens; [`base-lacewing`](../base-lacewing)
+  has them. A host under `COOKIE_DOMAIN` setting its own `access_token` cookie is a
+  separate attack; `readCookies` drops any cookie name that arrives twice.
+- Rate limiting on login. Add it before you ship.
+- Email verification and password reset. Both need a mailer.
+- `Bun.password`. It only exists under Bun and Vitest runs under Node, so
+  `auth/password.ts` uses `@node-rs/argon2` (argon2id, runs under both).
 
 ## Environment
 
@@ -177,9 +141,11 @@ Beyond the base template's variables:
 
 | Variable | Notes |
 | --- | --- |
-| `JWT_SECRET` | >= 32 characters, or the app will not start. |
-| `JWT_ACCESS_EXPIRY` | Default `15m`. Cannot be revoked early - keep it short. |
-| `REFRESH_TOKEN_TTL_DAYS` | Default `7`. Revocable, so it can be generous. |
-| `COOKIE_SECURE` | **`true` in production.** Over plain http a Secure cookie is silently dropped. |
+| `JWT_SECRET` | 32+ characters, or the app will not start. |
+| `JWT_ACCESS_EXPIRY` | Default `15m`. Cannot be revoked early, so keep it short. |
+| `REFRESH_TOKEN_TTL_DAYS` | Default `7`. Revocable. |
+| `COOKIE_SECURE` | `true` in production. Over plain http a Secure cookie is silently dropped. |
 | `COOKIE_SAME_SITE` | `lax` by default. `none` requires `Secure` and means CSRF is your problem. |
-| `COOKIE_DOMAIN` | Unset leaves every cookie host-only. Set the shared parent (`example.com`) once the app and the API sit on different hosts, or the frontend host never receives what the API set and a login that returned 200 is followed by requests with no session on them. A `Domain` cookie goes to every subdomain underneath, so pick the narrowest parent that covers your hosts. |
+| `COOKIE_DOMAIN` | Unset, every cookie is host-only. Set it when the app and the API are on different hosts; see [PRODUCTION.md](../PRODUCTION.md). |
+
+Before the first deploy, read [`../PRODUCTION.md`](../PRODUCTION.md).

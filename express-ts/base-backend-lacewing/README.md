@@ -1,221 +1,126 @@
-# Express TypeScript Backend Template (lacewing)
+# express-ts/base-backend-lacewing
 
-The JWT template, rebuilt on [lacewing](https://github.com/Smiduweorc/lacewing) - an
-opinionated JWT library that makes RFC 8725 (JWT Best Current Practices) the default
-behavior rather than optional configuration. This template doubles as a working demo of
-what that buys you: same routes and layout as `base-backend-jwt`, but the entire token
-lifecycle - signing, verification, transport, revocation - goes through lacewing, and the
-CSRF protection is wired to the session it creates.
+[`base-backend-jwt`](../base-backend-jwt) rebuilt on
+[lacewing](https://github.com/Smiduweorc/lacewing). Same routes and layout; signing,
+verification, cookies and revocation go through lacewing, and CSRF is bound to the session
+it creates. Express 5 + TypeScript, zod, winston, Swagger docs, Jest.
 
-Express 5 + TypeScript, Zod validation, Winston logging, Swagger docs, Jest tests.
-
-## What lacewing does here
-
-| Concern                 | Where                                          | What you get                                                                                                                                                                                                       |
-| ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Verification profiles   | `src/config/lacewing.ts`                       | Issuer, audience, algorithm allowlist and key source declared once; `jwtVerify(token, profile)` is the only verify path. No `decode()`, no `alg: none`, no header-chosen algorithms.                               |
-| Access vs refresh split | `src/middleware/auth.ts`                       | The cookbook presets pin `typ` to `at+jwt` / `rt+jwt` and different audiences. A refresh token presented as an access token fails verification even though the claims and key family match.                        |
-| Revocation              | `src/config/lacewing.ts`, `auth.controller.ts` | Every token carries a unique `jti`. Logout revokes the access token _now_, not at `exp`; refresh rotation revokes the used refresh token, so a stolen one is good for at most one use.                             |
-| Secret hygiene          | `src/config/env.ts` + boot                     | HMAC secrets are entropy-checked at import. `JWT_SECRET=my-super-secret-key...` refuses to boot - run `npm run secrets` for values that pass.                                                                      |
-| Cookie transport        | `src/middleware/auth.ts`                       | `buildTokenCookie` always emits `HttpOnly; Secure; SameSite` - weaker cookies are unrepresentable, which is why there is no `COOKIE_SECURE` env switch. The refresh cookie is path-scoped to the refresh endpoint. |
-| Bearer transport        | `src/middleware/auth.ts`                       | `parseBearer` does strict RFC 6750 parsing for non-browser clients - one header, one scheme, one token, never the query string.                                                                                    |
-| Typed errors            | `src/middleware/auth.ts`                       | `JWTExpired`, `JWTRevoked`, and everything else collapses to a plain 401 - no oracle for attackers, precise handling for you.                                                                                      |
-
-CSRF protection is the signed double-submit pattern (`csrf-csrf`), bound to the access
-token as the session identifier - login and refresh both rotate the CSRF token along with
-the session and return the new one in the response body. State-changing routes require the
-`x-csrf-token` header. A client that caches the token from login gets 403s from the first
-refresh onward, at `JWT_ACCESS_EXPIRY` old, so read it from each response.
-
-A second cookie of the same name is refused rather than resolved. Any host under
-`COOKIE_DOMAIN` can set `access_token`, browsers send both copies, and nothing says which
-wins, so an ambiguous name is a 401 that says `Ambiguous access token cookie`, which
-separates it in the log from an ordinary logged-out request.
-
-The auth tests (`src/routes/api/v1/__tests__/auth.routes.test.ts`) exercise each of these
-guarantees against the live app - tampered tokens, replayed refresh tokens, token
-confusion, revoked-but-unexpired access tokens - and are a decent tour of the library.
-
-## Quick Start
+## Run it
 
 ```bash
 npm install
+npm run dev   # loads .env.development, which has random dev-only secrets
+```
 
-# Development - watch mode (node --watch), auto-loads .env.development.
-# That file ships with random dev-only secrets that pass lacewing's entropy
-# check, so this works straight away.
-npm run dev
+Node 24 or later (lacewing's minimum; see `.nvmrc`). For production:
 
-# Run tests
-npm test
-
-# Build and run for production
+```bash
 cp .env.production.example .env.production
-npm run secrets   # paste its output over the empty secret lines in .env.production
-npm run build
-npm start
+npm run secrets   # paste the output over the empty secret lines in .env.production
 ```
 
-Requires Node >= 24 (lacewing's floor; see `.nvmrc`).
+lacewing entropy-checks the HMAC secrets at boot, so `JWT_SECRET=my-super-secret-key...`
+refuses to start. `npm run secrets` prints values that pass.
 
-## Auth flow
+## Delete first
 
-```
-POST /api/v1/auth/login     -> sets access_token + refresh_token cookies,
-                               returns { user, csrfToken }
-GET  /api/v1/auth/me        -> whoever the verified token says you are
-POST /api/v1/auth/refresh   -> rotates both tokens + csrfToken; revokes the
-                               refresh token it just consumed
-POST /api/v1/auth/logout    -> revokes the access token, clears cookies
-                               (needs x-csrf-token)
-GET  /api/v1/auth/csrf-token-> a fresh CSRF token for the current session
-```
+`login` in `controllers/auth.controller.ts` mints a session for a made-up user with any
+email and password (`// TODO: Replace with actual user authentication logic`). Replace it.
+Users are an in-memory `Map` in `controllers/user.controller.ts`.
 
-Browsers authenticate with the httpOnly cookie; everything else can send
-`Authorization: Bearer <token>` instead. Mutating routes additionally require the
-`x-csrf-token` header matching the token from login/refresh.
+## What lacewing does here
 
-## Project Structure
+- `src/config/lacewing.ts`: issuer, audience, allowed algorithms and key declared once;
+  `jwtVerify(token, profile)` is the only verify path. No `decode()`, no `alg: none`, no
+  algorithm chosen by the header. The revocation store is set up here too.
+- `src/middleware/auth.ts`: the presets pin `typ` to `at+jwt` and `rt+jwt` with different
+  audiences, so a refresh token presented as an access token fails verification.
+  `buildTokenCookie` always emits `HttpOnly; Secure; SameSite`, which is why there is no
+  `COOKIE_SECURE`; the refresh cookie is path-scoped to the refresh endpoint.
+  `parseBearer` does strict RFC 6750 parsing for non-browser clients: one header, one
+  scheme, one token, never the query string. `JWTExpired`, `JWTRevoked` and every other
+  failure reach the client as a plain 401.
+- `auth.controller.ts`: every token has a unique `jti`. Logout revokes the access token
+  immediately; refresh revokes the refresh token it consumed, so a stolen one works once
+  at most.
 
-```
-.
-├── Dockerfile
-├── eslint.config.mjs
-├── jest.config.ts
-├── openapi.json               <- generated by npm run openapi, committed
-├── package.json
-├── README.md
-├── src
-│   ├── app.ts
-│   ├── config
-│   │   ├── env.ts
-│   │   └── lacewing.ts        <- profiles, keys, revocation store
-│   ├── controllers
-│   │   ├── auth.controller.ts <- login / refresh rotation / logout revocation
-│   │   ├── health.controller.ts
-│   │   └── user.controller.ts
-│   ├── main.ts
-│   ├── middleware
-│   │   ├── auth.ts            <- sign/verify helpers, cookies, authenticate
-│   │   ├── csrf.ts            <- double-submit CSRF, session-bound
-│   │   ├── errorHandler.ts
-│   │   ├── httpLogger.ts
-│   │   └── validate.ts
-│   ├── models
-│   ├── openapi                <- route descriptions; the document is built from them
-│   ├── routes
-│   ├── scripts
-│   ├── test
-│   ├── types
-│   └── utils
-└── tsconfig.json
-```
+CSRF is signed double submit (`csrf-csrf`) bound to the access token. Login and refresh
+rotate the CSRF token with the session and return the new one in the body; mutating
+routes need it in `x-csrf-token`. A client that keeps the token from login gets 403s from
+the first refresh on, so read it from each response.
 
-## Adding a New Feature
+A second cookie with the same name is refused. Any host under `COOKIE_DOMAIN` can set
+`access_token` and browsers send both copies, so a duplicated name is a 401 saying
+`Ambiguous access token cookie`, distinguishable in the log from a logged-out request.
 
-Identical to `base-backend-jwt`: model (Zod schema + factory) -> controller -> routes ->
-register in `src/routes/api/v1/index.ts` -> describe the routes in `src/openapi/paths/`
-and run `npm run openapi` -> tests. See that template's README for the
-full worked "Product" example; the only difference here is that authenticated route tests
-log in first via the `loginSession` helper in `src/test/auth.ts`:
+The auth tests (`src/routes/api/v1/__tests__/auth.routes.test.ts`) cover tampered tokens,
+replayed refresh tokens, token confusion and revoked but unexpired access tokens.
+
+## Auth routes
+
+| Route | Does |
+| --- | --- |
+| `POST /api/v1/auth/login` | Sets `access_token` + `refresh_token` cookies, returns `{ user, csrfToken }` |
+| `GET /api/v1/auth/me` | Whoever the verified token says you are |
+| `POST /api/v1/auth/refresh` | Rotates both tokens and the CSRF token; revokes the refresh token it consumed |
+| `POST /api/v1/auth/logout` | Revokes the access token, clears cookies (needs `x-csrf-token`) |
+| `GET /api/v1/auth/csrf-token` | A fresh CSRF token for the current session |
+
+Browsers use the httpOnly cookie; other clients can send `Authorization: Bearer <token>`.
+
+## Adding a resource
+
+As in [`base-backend`](../base-backend). Authenticated route tests log in first with the
+helpers in `src/test/auth.ts`:
 
 ```typescript
 import { asUser, loginSession } from "../../../../test/auth";
 
 const session = await loginSession(app);
 await request(app).get("/api/v1/products").set(asUser(session));
-// mutations additionally need: .set("x-csrf-token", session.csrfToken)
+// mutations also need .set("x-csrf-token", session.csrfToken)
 ```
-
-## Environment Variables
-
-`config/env.ts` validates these with zod at startup. `npm run dev` loads `.env.development`, `npm start` loads `.env.production` - both through Node's native `--env-file-if-exists`, so the file is optional and a real environment variable always wins over it. Keys with a default below can be omitted.
-
-| Variable             | Default                        | Description                                                                |
-| -------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| `NODE_ENV`           | `development`                  | Environment mode                                                           |
-| `PORT`               | `3000`                         | Server port                                                                |
-| `LOG_LEVEL`          | `info`                         | Winston log level                                                          |
-| `SERVICE_NAME`       | `lacewing-backend`             | Service name for logs                                                      |
-| `CORS_ORIGIN`        | `*`                            | Allowed origins (comma-separated)                                          |
-| `CORS_METHODS`       | `GET,POST,PUT,...`             | Allowed methods                                                            |
-| `CORS_CREDENTIALS`   | `false`                        | Allow credentials; needs a named `CORS_ORIGIN`, not `*`                    |
-| `JWT_SECRET`         | (required)                     | Access-token HMAC secret. Entropy-checked at boot - use `npm run secrets`. |
-| `JWT_REFRESH_SECRET` | (required)                     | Refresh-token HMAC secret. Same rules.                                     |
-| `JWT_ISSUER`         | `http://localhost:3000`        | `iss` on every token; verification pins it                                 |
-| `JWT_AUDIENCE`       | `http://localhost:3000/api/v1` | `aud` of access tokens (refresh tokens get the refresh endpoint)           |
-| `JWT_ACCESS_EXPIRY`  | `15m`                          | Access token lifetime. lacewing caps it at 1h; longer refuses to sign.     |
-| `JWT_REFRESH_EXPIRY` | `7d`                           | Refresh token lifetime                                                     |
-| `COOKIE_SECRET`      | (required)                     | Secret for signed cookies (min 32 chars)                                   |
-| `COOKIE_SAME_SITE`   | `strict`                       | `strict` or `lax`. `none` is not accepted - that is how CSRF happens.      |
-| `COOKIE_DOMAIN`      | (unset)                        | Parent domain for the auth and CSRF cookies. Unset leaves them host-only. |
-| `CSRF_SECRET`        | (required)                     | Secret for CSRF token HMAC (min 32 chars)                                  |
-
-There is deliberately no `COOKIE_SECURE`: every cookie is `HttpOnly; Secure`,
-unconditionally. Browsers treat `http://localhost` as a secure context, so development
-works unchanged; anything non-local has to be HTTPS, which is the correct constraint to
-be stuck with.
-
-Unset, `COOKIE_DOMAIN` leaves every cookie host-only: only the host that set it gets it
-back, which is right on localhost and behind a single hostname. Set the shared parent once
-the browser has to reach more than one of your hosts, say a session minted by
-`auth.example.com` that `api.example.com` verifies, or a page on `app.example.com` calling
-this API. CSRF breaks first: `middleware/csrf.ts` HMACs each token against the
-access-token cookie, so where the CSRF cookie does not reach, valid requests fail the
-check with a 403. A `Domain` cookie also reaches every subdomain underneath, so name the
-narrowest parent that covers your hosts. It rules out the `__Host-` prefix, which means
-host-only by definition.
-
-`COOKIE_DOMAIN` only reaches hosts under one registrable domain. A frontend on a different
-domain would need `SameSite=None`, which this template does not accept, because a
-cross-site token cookie is what CSRF exploits. Two ways round it: put both behind one
-origin, with a reverse proxy mounting this API under a path on the frontend's domain, or
-drop cookies for that client and send the access token as `Authorization: Bearer` -
-`authenticate()` already accepts it, and a request with no cookie has no CSRF problem to
-solve. `config/env.ts` prints the same two options if you try `COOKIE_SAME_SITE=none`.
-
-## Available Scripts
-
-| Script                  | Description                                                     |
-| ----------------------- | --------------------------------------------------------------- |
-| `npm run dev`           | Watch mode (`node --watch`); loads `.env.development`           |
-| `npm run secrets`       | Print entropy-check-passing values for the four secret env vars |
-| `npm run build`         | Compile TypeScript                                              |
-| `npm start`             | Run the build; loads `.env.production`                          |
-| `npm test`              | Run all tests                                                   |
-| `npm run openapi`       | Regenerate `openapi.json` from `src/openapi`                    |
-| `npm run test:watch`    | Watch mode                                                      |
-| `npm run test:coverage` | With coverage                                                   |
-
-## API Documentation
-
-Each route is described once, as data, in `src/openapi/paths/`, using the same zod
-schemas that validate the request. Swagger UI is at `http://localhost:3000/docs` and the
-raw document at `/docs.json`, outside production only. `openapi.json` is the committed
-copy; `npm test` fails when it is stale, when a mounted route is not described, and when
-a response in a route test does not match its description.
 
 `GET /api/v1/users` is paginated: `?limit=` (default 20, at most 100) and `?offset=`
 (default 0) return `{ items, total, limit, offset }`. Copy that shape for new list routes.
 
-## Scaling notes
+## Environment
+
+As in `base-backend`, plus:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SERVICE_NAME` | `lacewing-backend` | Service name for logs |
+| `CORS_CREDENTIALS` | `false` | Allow credentials; needs a named `CORS_ORIGIN`, not `*` |
+| `JWT_SECRET` | (required) | Access-token HMAC secret, entropy-checked |
+| `JWT_REFRESH_SECRET` | (required) | Refresh-token HMAC secret, entropy-checked |
+| `JWT_ISSUER` | `http://localhost:3000` | `iss` on every token; verification pins it |
+| `JWT_AUDIENCE` | `http://localhost:3000/api/v1` | `aud` of access tokens (refresh tokens get the refresh endpoint) |
+| `JWT_ACCESS_EXPIRY` | `15m` | lacewing caps it at 1h and refuses to sign longer |
+| `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
+| `COOKIE_SECRET` | (required) | Signed cookies (32+ chars) |
+| `COOKIE_SAME_SITE` | `strict` | `strict` or `lax`; `none` is refused |
+| `COOKIE_DOMAIN` | (unset) | Parent domain for the auth and CSRF cookies. Unset, they are host-only; see [PRODUCTION.md](../PRODUCTION.md) before splitting hosts |
+| `CSRF_SECRET` | (required) | CSRF token HMAC (32+ chars) |
+
+Every cookie is `HttpOnly; Secure`. Browsers treat `http://localhost` as a secure
+context, so development works; anything else has to be HTTPS.
+
+After changing a route, `npm run openapi` rewrites the committed `openapi.json`; `npm
+test` fails when it is stale, when a mounted route is not described, or when a response
+does not match its description.
+
+## Known quirks
 
 - `MemoryRevocationStore` is per-process. Behind more than one instance, implement
-  lacewing's `RevocationStore` interface over Redis or your database and pass it in
-  `src/config/lacewing.ts` - nothing else changes.
-- HMAC means every verifier can also mint. The moment a second service needs to verify
-  these tokens, switch to `generateKeyPair()` (EdDSA) and serve a JWKS - the profiles
-  take a `{ jwksUri }` in place of the key and handle caching and rotation themselves.
-  If you must stay symmetric while sharing keys across services, read
-  [docs/symmetric-jwks.md](../../docs/symmetric-jwks.md) first - a symmetric JWKS is a
-  secret document, and there is exactly one safe way to run an endpoint for it.
-- Jest note: lacewing and jose ship ESM-only, so `jest.config.ts` transpiles them
-  alongside the app sources (`transformIgnorePatterns`). Don't remove that block - the
-  suite will fail with "Unexpected token 'export'".
+  lacewing's `RevocationStore` over Redis or your database and pass it in
+  `src/config/lacewing.ts`.
+- HMAC means every verifier can also mint. When a second service needs to verify these
+  tokens, switch to `generateKeyPair()` (EdDSA) and serve a JWKS; the profiles take a
+  `{ jwksUri }` in place of the key. To stay symmetric across services, read
+  [docs/symmetric-jwks.md](../../docs/symmetric-jwks.md) first.
+- lacewing and jose are ESM-only, so `jest.config.ts` transpiles them with the app
+  sources (`transformIgnorePatterns`). Don't remove that block; the suite will fail with
+  "Unexpected token 'export'".
 
-## Before production
-
-[`../PRODUCTION.md`](../PRODUCTION.md) is the list of what these templates deliberately do
-not do - rate limiting, TLS, a real datastore, a shared revocation store - which of those
-your platform probably handles for you, and a short list of things that are simply bugs.
-Read it before the first deploy, not after.
+Before the first deploy, read [`../PRODUCTION.md`](../PRODUCTION.md).
