@@ -13,17 +13,17 @@
 	},
 	"dependencies": {
 		"@bevd/backend": "workspace:*",
-		"@trpc/client": "^11.19.0",
-		"vue": "^3.5.43"
+		"@trpc/client": "^11.24.0",
+		"vue": "^3.5.44"
 	},
 	"devDependencies": {
-		"@types/node": "^26.6.5",
+		"@types/node": "^26.6.6",
 		"@vitejs/plugin-vue": "^6.0.10",
 		"@vue/test-utils": "^2.5.1",
 		"@vue/tsconfig": "^0.9.1",
 		"happy-dom": "^20.14.6",
-		"vite": "^8.3.4",
-		"vitest": "^5.0.3",
-		"vue-tsc": "^3.3.13"
+		"vite": "^8.3.5",
+		"vitest": "^5.1.0",
+		"vue-tsc": "^3.3.14"
 	}
 }

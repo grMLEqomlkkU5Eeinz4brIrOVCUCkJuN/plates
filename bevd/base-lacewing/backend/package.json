@@ -24,12 +24,12 @@
 	},
 	"dependencies": {
 		"@elysiajs/cors": "^1.4.2",
-		"@elysiajs/openapi": "^1.4.16",
-		"@grpc/grpc-js": "^1.14.6",
+		"@elysiajs/openapi": "^1.4.17",
+		"@grpc/grpc-js": "^1.14.7",
 		"@grpc/proto-loader": "^0.8.1",
 		"@node-rs/argon2": "^2.2.2",
-		"@trpc/server": "^11.19.0",
-		"arktype": "^2.2.8",
+		"@trpc/server": "^11.24.0",
+		"arktype": "^2.2.9",
 		"cookie": "^2.0.1",
 		"drizzle-orm": "^0.45.4",
 		"elysia": "^1.4.30",
@@ -39,11 +39,11 @@
 		"pino-pretty": "^13.2.0"
 	},
 	"devDependencies": {
-		"@electric-sql/pglite": "^0.5.8",
-		"@types/bun": "^1.4.2",
+		"@electric-sql/pglite": "^0.5.15",
+		"@types/bun": "^1.4.4",
 		"@types/pg": "^8.23.1",
-		"@vitest/coverage-v8": "^5.0.3",
+		"@vitest/coverage-v8": "^5.1.0",
 		"drizzle-kit": "^0.31.11",
-		"vitest": "^5.0.3"
+		"vitest": "^5.1.0"
 	}
 }
