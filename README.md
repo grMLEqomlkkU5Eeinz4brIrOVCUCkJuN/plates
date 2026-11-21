@@ -1,3 +1,8 @@
+# IMPORTANT
+
+TO BE UPDATED AND REVISITED FOR CORRECTION (typescript projects were affected by parts needing re-work)
+
+
 # plates
 
 Project templates. Grab one, don't clone the whole repo.
