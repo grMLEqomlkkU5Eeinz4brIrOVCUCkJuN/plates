@@ -27,11 +27,11 @@
 		"prepare": "lefthook install"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.15",
-		"@commitlint/cli": "^21.2.3",
-		"@commitlint/config-conventional": "^21.2.3",
-		"lefthook": "^2.2.1",
-		"typescript": "^5.9.3"
+		"@biomejs/biome": "^2.6.8",
+		"@commitlint/cli": "^21.2.4",
+		"@commitlint/config-conventional": "^21.2.4",
+		"lefthook": "^2.2.2",
+		"typescript": "^7.0.2"
 	},
 	"engines": {
 		"bun": ">=1.3.0"
