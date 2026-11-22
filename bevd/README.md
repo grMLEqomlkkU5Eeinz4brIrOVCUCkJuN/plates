@@ -19,7 +19,7 @@ and nothing else moves.
 ## Grab one
 
 ```sh
-npx degit grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/plates/bevd/base my-app
+npx degit grmlqSOTFTtk/plates/bevd/base my-app
 cd my-app
 git init
 bun install
@@ -55,7 +55,7 @@ are Vitest against PGlite (Postgres in-process, no Docker).
 
 These use Biome, not the ESLint setup in [`standard/`](../standard), because Biome is one
 binary, works with Bun, and is what the upstream
-[bevd](https://github.com/grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/bevd) project used. The rest
+[bevd](https://github.com/grmlqSOTFTtk/bevd) project used. The rest
 of the house style is the same: tabs, double quotes, Conventional Commits, lefthook,
 `.editorconfig` and a CI workflow.
 

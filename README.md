@@ -55,7 +55,7 @@ why and lists the gotchas.
 degit pulls a single folder, with no git history:
 
 ```sh
-npx degit grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/plates/express-ts/base-backend my-app
+npx degit grmlqSOTFTtk/plates/express-ts/base-backend my-app
 cd my-app
 git init
 ```
@@ -67,7 +67,7 @@ Swap `express-ts/base-backend` for the template you want, such as `bevd/base-jwt
 
 ```sh
 git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/grMLEqomlkkU5Eeinz4brIrOVCUCkJuN/plates.git my-app
+  https://github.com/grmlqSOTFTtk/plates.git my-app
 cd my-app
 git sparse-checkout set express-ts/base-backend
 
